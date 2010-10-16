@@ -198,7 +198,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
                 // keep url params
                 $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
-                $params['datasrt'] = $_REQUEST['datasrt'];
+                //$params['datasrt'] = $_REQUEST['datasrt'];
                 $params['dataofs'] = $prev;
 
                 $text .= '<a href="'.wl($ID,$params).
@@ -213,7 +213,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
                 // keep url params
                 $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
-                $params['datasrt'] = $_REQUEST['datasrt'];
+                //$params['datasrt'] = $_REQUEST['datasrt'];
                 $params['dataofs'] = $next;
 
                 $text .= '<a href="'.wl($ID,$params).
