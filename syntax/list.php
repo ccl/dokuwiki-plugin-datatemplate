@@ -58,54 +58,135 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 	 * Create output
 	 */
 	function render($format, &$R, $data) {
-		if(!array_key_exists('template', $data)) {
-			// If keyword "template" not present, we will leave
-			// the rendering to the parent class.
-			static $msgout = true;
-			if($msgout) {
-				msg("datatemplatelist: no template specified, using standard table output.");
-				$msgout = false;
-			}
-			parent::render($format, $R, $data);
-			return;
-		}
-		if($format != 'xhtml') return false;
+		global $ID;
 		if(is_null($data)) return false;
-		$R->info['cache'] = false;
-
-		$sqlite = $this->dthlp->_getDB();
-		if(!$sqlite) return false;
-
-		#dbg($data);
-		$sql = $this->_buildSQL($data); // handles request params, too
-		#dbg($sql);
-
-		// run query
-		$clist = array_keys($data['cols']);
-		$res = $sqlite->query($sql);
-
-		$cnt = 0;
-		$rows = array();
-		while ($row = sqlite_fetch_array($res, SQLITE_NUM)) {
-			$rows[] = $row;
-			$cnt++;
-			if($data['limit'] && ($cnt == $data['limit'])) break; // keep an eye on the limit
+		
+		// Build SQL from original $data, but without limits, offset
+		// and additional filters.
+        $dataofs = $_REQUEST['dataofs'];
+        unset($_REQUEST['dataofs']);
+        $limit = $data['limit'];
+        unset($data['limit']);
+        $filter = $_REQUEST['dataflt'];
+        unset($_REQUEST['dataflt']);
+        $sql = $this->_buildSQL($data);
+        $hash = md5($sql);
+        $mkey = 'datatemplate_' . $hash;
+	
+		if($format == 'metadata') {
+			// Check and generation of cached data to avoid
+			// repeated use of the SQLite queries, which can end up
+			// being quite slow.
+			
+			$sqlite = $this->dthlp->_getDB();
+			
+			// Build minimalistic data array for checking the cache
+			$dtcc = array();
+			$dtcc['cols'] = array(
+	            '%pageid%' => array(
+	                    'multi' => '',
+	                    'key' => '%pageid%',
+	                    'title' => 'Title',
+	                    'type' => 'page',
+	                ));
+	        $dtcc['filter'] = $data['filter'];
+	        $sqlcc = $this->_buildSQL($dtcc);
+	        
+	        $cachedate = p_get_metadata($ID, $mkey . "_cachedate");
+	        //dbg("Cachedate: " . $cachedate);
+	        
+	        $latest = 0;
+	        if($cachedate) {	        	
+	        	// Check for newest page in SQL result
+	        	$res = $sqlite->query($sqlcc);
+	        	while($row = sqlite_fetch_array($res, SQLITE_NUM)) {
+	        		$modified = filemtime(wikiFN($row[0]));
+	        		$latest = ($modified > $latest) ? $modified : $latest;
+	        	}
+	        	//dbg("Latest: " . $latest);
+	        }
+	        if(!$cachedate || $latest > (int) $cachedate) {       		
+        		//dbg("Rebuilding cache.");
+        		$res = $sqlite->query($sql);
+        		$rows = sqlite_fetch_all($res);
+        		$md = array($mkey . "_cachedate" => time(), $mkey . "_data" => $rows);
+        		p_set_metadata($ID, $md);
+        	}	        
 		}
-
-		if ($cnt === 0) {
-			$this->nullList($data, $clist, $R);
+		
+		// Restore offset and limit
+		$_REQUEST['dataofs'] = $dataofs;
+		$data['limit'] = $limit;
+		$_REQUEST['dataflt'] = $filter;
+		//dbg($filter);
+		//dbg($data['limit']);
+		//dbg($_REQUEST['dataofs']);
+		
+		if($format == 'xhtml') {
+			$R->info['cache'] = false;
+			
+			
+			if(!array_key_exists('template', $data)) {
+				// If keyword "template" not present, we will leave
+				// the rendering to the parent class.
+				static $msgout = false;
+				if($msgout) {
+					msg("datatemplatelist: no template specified, using standard table output.");
+					$msgout = false;
+				}
+				parent::render($format, $R, $data);
+				return;
+			}
+	
+			/* Skip the following, use cached metadata instead.
+			$sqlite = $this->dthlp->_getDB();
+			if(!$sqlite) return false;
+			
+			//dbg($data);
+			$sql = $this->_buildSQL($data); // handles request params, too
+			//dbg($sql);
+	
+			// run query
+			$clist = array_keys($data['cols']);
+			$res = $sqlite->query($sql);
+			*/
+			
+			$cnt = 0;
+			
+			$datarows = $rows ? $rows : p_get_metadata($ID, $mkey . "_data");
+			//dbg("Datarows: " . count($datarows) . "\n" . "Rows: " . count($rows));
+			
+			$rows = array();
+			$keys = array();
+			foreach($data['headers'] as $k => $v)
+				$keys[$v] = $k;
+			
+			//while($row = sqlite_fetch_array($res, SQLITE_NUM)) {					
+			for ($i = (int) $_REQUEST['dataofs']; $i < count($datarows); $i++) {	
+				//$rows[] = $row;
+				if($this->_match_filters($keys, $datarows[$i])) {
+					$rows[] = $datarows[$i];
+					$cnt++;
+				}
+				if($data['limit'] && ($cnt == $data['limit'])) break; // keep an eye on the limit
+			}
+	
+			if ($cnt === 0) {
+				$this->nullList($data, $clist, $R);
+				return true;
+			}
+	
+			// The following code is taken more or less from the templater plugin.
+			// We are not using the plugin directly, because we want to use the
+			// data plugin's treatment of URLs. Hence, we are going to do the
+			// substitutions after the parsing
+			$wikipage = preg_split('/\#/u', $data['template'], 2);
+	
+			$this->_renderTemplate($wikipage, $data, $rows, $R);
+			$R->doc .= $this->_postRender($data, count($datarows));
 			return true;
 		}
-
-		// The following code is taken more or less from the templater plugin.
-		// We are not using the plugin directly, because we want to use the
-		// data plugin's treatment of URLs. Hence, we are going to do the
-		// substitutions after the parsing
-		$wikipage = preg_split('/\#/u', $data['template'], 2);
-
-		$this->_renderTemplate($wikipage, $data, $rows, $R);
-		$R->doc .= $this->_postRender($data, $res);
-		return true;
+		return false;
 	}
 
 	function _renderTemplate($wikipage, $data, $rows, $R) {
@@ -187,7 +268,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 	}
 
 	
-	function _postRender($data, $res) {
+	function _postRender($data, $numrows) {
 		global $ID;
 		// Add pagination controls
 		if($data['limit']){
@@ -208,7 +289,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
             $text .= '&nbsp;';
 
-            if(sqlite_num_rows($res) > $data['limit']){
+            if($numrows - $offset > $data['limit']){
                 $next = $offset + $data['limit'];
 
                 // keep url params
@@ -224,6 +305,43 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             	return '<div class="prevnext">' . $text . '</div>';
             return "";
         }
+	}
+	
+	function _match_filters($keys, $datarow) {
+		/* Get whole $data as input and
+		 * - generate keys
+		 * - treat multi-value columns specially, i.e. add 's' to key and look at individual values
+		 */
+		$filters = $this->dthlp->_get_filters();
+		$matched = True;
+		$datarow = array_values($datarow);
+		foreach($filters as $f) {
+			switch($f['compare']) {
+				case 'LIKE':
+					$comp = $this->_match_wildcard($f['value'], $datarow[$keys[$f['key']]]);
+					break;
+				case 'NOT LIKE':
+					$comp = !$this->_match_wildcard($f['value'], $datarow[$keys[$f['key']]]);
+					break;
+				default:
+					$comp = False;
+			}
+			if($f['logic'] == 'AND')
+				$matched = $matched && $comp;
+			else
+				$matched = $matched || $comp;
+		}
+		return $matched;
+	}
+	
+	function _match_wildcard( $wildcard_pattern, $haystack ) {
+		$regex = str_replace(
+ 	    	array("%", "?"), // wildcard chars
+    	 	array('.*','.'),   // regexp chars
+     		preg_quote($wildcard_pattern)
+   		);
+   	
+		return preg_match('/^'.$regex.'$/is', $haystack);
 	}
 	
 	function nullList($data, $clist, &$R) {
