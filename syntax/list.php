@@ -124,8 +124,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 		
 		if($format == 'xhtml') {
 			$R->info['cache'] = false;
-			
-			
+						
 			if(!array_key_exists('template', $data)) {
 				// If keyword "template" not present, we will leave
 				// the rendering to the parent class.
@@ -137,37 +136,20 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 				parent::render($format, $R, $data);
 				return;
 			}
-	
-			/* Skip the following, use cached metadata instead.
-			$sqlite = $this->dthlp->_getDB();
-			if(!$sqlite) return false;
-			
-			//dbg($data);
-			$sql = $this->_buildSQL($data); // handles request params, too
-			//dbg($sql);
-	
-			// run query
-			$clist = array_keys($data['cols']);
-			$res = $sqlite->query($sql);
-			*/
 			
 			$cnt = 0;
 			
 			$datarows = $rows ? $rows : p_get_metadata($ID, $mkey . "_data");
 			//dbg("Datarows: " . count($datarows) . "\n" . "Rows: " . count($rows));
+			$datarows = $this->_match_filters($data, $datarows);
 			
 			$rows = array();
-			$keys = array();
-			foreach($data['headers'] as $k => $v)
-				$keys[$v] = $k;
-			
+			//dbg($data);
 			//while($row = sqlite_fetch_array($res, SQLITE_NUM)) {					
 			for ($i = (int) $_REQUEST['dataofs']; $i < count($datarows); $i++) {	
 				//$rows[] = $row;
-				if($this->_match_filters($keys, $datarows[$i])) {
-					$rows[] = $datarows[$i];
-					$cnt++;
-				}
+				$rows[] = array_values($datarows[$i]);
+				$cnt++;
 				if($data['limit'] && ($cnt == $data['limit'])) break; // keep an eye on the limit
 			}
 	
@@ -307,41 +289,54 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         }
 	}
 	
-	function _match_filters($keys, $datarow) {
+	function _match_filters($data, $datarows) {
 		/* Get whole $data as input and
 		 * - generate keys
 		 * - treat multi-value columns specially, i.e. add 's' to key and look at individual values
 		 */
+		$out = array();
+		$keys = array();
+		foreach($data['headers'] as $k => $v)
+			$keys[$v] = $k;
 		$filters = $this->dthlp->_get_filters();
-		$matched = True;
-		$datarow = array_values($datarow);
-		foreach($filters as $f) {
-			switch($f['compare']) {
-				case 'LIKE':
-					$comp = $this->_match_wildcard($f['value'], $datarow[$keys[$f['key']]]);
-					break;
-				case 'NOT LIKE':
-					$comp = !$this->_match_wildcard($f['value'], $datarow[$keys[$f['key']]]);
-					break;
-				default:
-					$comp = False;
+		foreach($datarows as $dr) { 
+			$matched = True;
+			$datarow = array_values($dr);
+			foreach($filters as $f) {
+				$col = $f['key'];
+				$multi = $data['cols'][$col]['multi'];
+				if($multi) $col .= 's';
+				$idx = $keys[$col];
+				switch($f['compare']) {
+					case 'LIKE':
+						$comp = $this->_match_wildcard($f['value'], $datarow[$idx]);
+						break;
+					case 'NOT LIKE':
+						$comp = !$this->_match_wildcard($f['value'], $datarow[$idx]);
+						break;
+					case '=':
+						$f['compare'] = '==';
+					default:
+						$evalstr = $datarow[$idx] . $f['compare'] . $f['value'];
+						$comp = eval('return ' . $evalstr . ';');
+				}
+				if($f['logic'] == 'AND')
+					$matched = $matched && $comp;
+				else
+					$matched = $matched || $comp;
 			}
-			if($f['logic'] == 'AND')
-				$matched = $matched && $comp;
-			else
-				$matched = $matched || $comp;
+			if($matched) $out[] = $dr;
 		}
-		return $matched;
+		return $out;
 	}
 	
 	function _match_wildcard( $wildcard_pattern, $haystack ) {
 		$regex = str_replace(
- 	    	array("%", "?"), // wildcard chars
+ 	    	array("%", "\?"), // wildcard chars
     	 	array('.*','.'),   // regexp chars
      		preg_quote($wildcard_pattern)
    		);
-   	
-		return preg_match('/^'.$regex.'$/is', $haystack);
+		return preg_match('/^\s*'.$regex.'$/im', $haystack);
 	}
 	
 	function nullList($data, $clist, &$R) {
