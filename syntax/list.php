@@ -311,7 +311,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             	$text .= '<span class="prev disabled">&larr; Previous Page</span>';
             }
 
-            for($i=1; $i <= 1 + $numrows / $data['limit']; $i++) {
+            for($i=1; $i <= ceil($numrows / $data['limit']); $i++) {
             	$offs = ($i - 1) * $data['limit'];
             	$params['dataofs'] = $offs;
             	$selected = $offs == $_REQUEST['dataofs'] ? ' class="selected"': '';
