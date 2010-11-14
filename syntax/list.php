@@ -29,7 +29,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
 	function handle($match, $state, $pos, &$handler){
 		// We want the parent to handle the parsing, but still accept
-		// the "template" paramter. So we need to remove the corresponding
+		// the "template" and "filterform" paramter. So we need to remove the corresponding
 		// line from $match.
 		$template = '';
 		$lines = explode("\n",$match);
@@ -43,7 +43,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 			if (strtolower($line[0]) == 'template') {
 				$template = $line[1];
 				unset($lines[$num]);
-				break;
 			}
 		}
 		$match = implode("\n", $lines);
@@ -51,7 +50,27 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 		if(!empty($template)) {
 			$data['template'] = $template;
 		}
+		// For caching purposes, we always need to query the page id.
+		if(!array_key_exists('%pageid%', $data['cols'])) {
+			$data['cols']['%pageid%'] = array('multi' => '', 'key' => '%pageid%', 'title' => 'Title', 'type' => 'page');
+			if(array_key_exists('headers', $data)) 
+				array_push($data['headers'], '%pageid%');
+		}
 		return $data;
+	}
+	
+	function _getCleanSQL($data) {
+		// Build SQL from original $data, but without limits, offset
+		// and additional filters.
+        unset($data['limit']);
+		$dataofs = $_REQUEST['dataofs'];
+        unset($_REQUEST['dataofs']);
+        $filter = $_REQUEST['dataflt'];
+        unset($_REQUEST['dataflt']);
+        $sql = $this->_buildSQL($data);
+        $_REQUEST['dataofs'] = $dataofs;
+		$_REQUEST['dataflt'] = $filter;
+		return $sql;
 	}
 
 	/**
@@ -61,71 +80,16 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 		global $ID;
 		if(is_null($data)) return false;
 		
-		// Build SQL from original $data, but without limits, offset
-		// and additional filters.
-        $dataofs = $_REQUEST['dataofs'];
-        unset($_REQUEST['dataofs']);
-        $limit = $data['limit'];
-        unset($data['limit']);
-        $filter = $_REQUEST['dataflt'];
-        unset($_REQUEST['dataflt']);
-        $sql = $this->_buildSQL($data);
-        $hash = md5($sql);
-        $mkey = 'datatemplate_' . $hash;
+		$sql = $this->_getCleanSQL($data);
+        $mkey = 'datatemplate_' . md5($sql);
 	
 		if($format == 'metadata') {
-			// Check and generation of cached data to avoid
-			// repeated use of the SQLite queries, which can end up
-			// being quite slow.
-			
-			$sqlite = $this->dthlp->_getDB();
-			
-			// Build minimalistic data array for checking the cache
-			$dtcc = array();
-			$dtcc['cols'] = array(
-	            '%pageid%' => array(
-	                    'multi' => '',
-	                    'key' => '%pageid%',
-	                    'title' => 'Title',
-	                    'type' => 'page',
-	                ));
-	        $dtcc['filter'] = $data['filter'];
-	        $sqlcc = $this->_buildSQL($dtcc);
-	        
-	        $cachedate = p_get_metadata($ID, $mkey . "_cachedate");
-	        //dbg("Cachedate: " . $cachedate);
-	        
-	        $latest = 0;
-	        if($cachedate) {	        	
-	        	// Check for newest page in SQL result
-	        	$res = $sqlite->query($sqlcc);
-	        	while($row = sqlite_fetch_array($res, SQLITE_NUM)) {
-	        		$modified = filemtime(wikiFN($row[0]));
-	        		$latest = ($modified > $latest) ? $modified : $latest;
-	        	}
-	        	//dbg("Latest: " . $latest);
-	        }
-	        if(!$cachedate || $latest > (int) $cachedate) {       		
-        		//dbg("Rebuilding cache.");
-        		$res = $sqlite->query($sql);
-        		$rows = sqlite_fetch_all($res);
-        		$md = array($mkey . "_cachedate" => time(), $mkey . "_data" => $rows);
-        		p_set_metadata($ID, $md);
-        	}	        
+			$this->_checkAndBuildMeta($data, $sql, $mkey);			
 		}
-		
-		// Restore offset and limit
-		$_REQUEST['dataofs'] = $dataofs;
-		$data['limit'] = $limit;
-		$_REQUEST['dataflt'] = $filter;
-		//dbg($filter);
-		//dbg($data['limit']);
-		//dbg($_REQUEST['dataofs']);
 		
 		if($format == 'xhtml') {
 			$R->info['cache'] = false;
-			
-			
+						
 			if(!array_key_exists('template', $data)) {
 				// If keyword "template" not present, we will leave
 				// the rendering to the parent class.
@@ -137,37 +101,22 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 				parent::render($format, $R, $data);
 				return;
 			}
-	
-			/* Skip the following, use cached metadata instead.
-			$sqlite = $this->dthlp->_getDB();
-			if(!$sqlite) return false;
-			
-			//dbg($data);
-			$sql = $this->_buildSQL($data); // handles request params, too
-			//dbg($sql);
-	
-			// run query
-			$clist = array_keys($data['cols']);
-			$res = $sqlite->query($sql);
-			*/
 			
 			$cnt = 0;
 			
 			$datarows = $rows ? $rows : p_get_metadata($ID, $mkey . "_data");
 			//dbg("Datarows: " . count($datarows) . "\n" . "Rows: " . count($rows));
+			$datarows = $this->_match_filters($data, $datarows);
+			if(count($datarows) < $_REQUEST['dataofs']) $_REQUEST['dataofs'] = 0;
 			
 			$rows = array();
-			$keys = array();
-			foreach($data['headers'] as $k => $v)
-				$keys[$v] = $k;
-			
-			//while($row = sqlite_fetch_array($res, SQLITE_NUM)) {					
-			for ($i = (int) $_REQUEST['dataofs']; $i < count($datarows); $i++) {	
-				//$rows[] = $row;
-				if($this->_match_filters($keys, $datarows[$i])) {
-					$rows[] = $datarows[$i];
-					$cnt++;
-				}
+			$i = 0;					
+			foreach($datarows as $row) {
+				$i++;
+				if($i - 1 < $_REQUEST['dataofs']) continue;	
+				$rows[] = $row;
+				$cnt++;
+				
 				if($data['limit'] && ($cnt == $data['limit'])) break; // keep an eye on the limit
 			}
 	
@@ -182,11 +131,84 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 			// substitutions after the parsing
 			$wikipage = preg_split('/\#/u', $data['template'], 2);
 	
+			$R->doc .= '<div style="clear:both;">&nbsp;</div>';
+			$R->doc .= $this->_renderPagination($data, count($datarows));
 			$this->_renderTemplate($wikipage, $data, $rows, $R);
-			$R->doc .= $this->_postRender($data, count($datarows));
+			$R->doc .= $this->_renderPagination($data, count($datarows));
 			return true;
 		}
 		return false;
+	}
+	
+	function _checkAndBuildMeta($data, $sql, $mkey) {
+		// Check and generation of cached data to avoid
+		// repeated use of the SQLite queries, which can end up
+		// being quite slow.
+		$sqlite = $this->dthlp->_getDB();
+		
+		// Build minimalistic data array for checking the cache
+		$dtcc = array();
+		$dtcc['cols'] = array(
+            '%pageid%' => array(
+                    'multi' => '',
+                    'key' => '%pageid%',
+                    'title' => 'Title',
+                    'type' => 'page',
+                ));
+        $dtcc['filter'] = $data['filter'];
+        $sqlcc = $this->_buildSQL($dtcc);
+        $res = $sqlite->query($sqlcc);
+        $pageids = sqlite_fetch_all($res, SQLITE_NUM);
+        
+        $cachedate = p_get_metadata($ID, $mkey . "_cachedate");
+        //dbg("Cachedate: " . $cachedate);
+        
+        $latest = 0;
+        if($cachedate) {	        	
+        	// Check for newest page in SQL result        	
+        	foreach($pageids as $pageid) {
+        		$modified = filemtime(wikiFN($pageid[0]));
+        		$latest = ($modified > $latest) ? $modified : $latest;
+        	}
+        	//dbg("Latest: " . $latest);
+        }
+        if(!$cachedate || $latest > (int) $cachedate  || isset($_REQUEST['purge'])) {       		
+        	//dbg("Rebuilding cache.");
+        	$res = $sqlite->query($sql);
+        	$rows = sqlite_fetch_all($res, SQLITE_NUM);
+        	$md = array($mkey . "_cachedate" => time(), $mkey . "_data" => $rows);
+        	p_set_metadata($ID, $md);
+        } else {
+        	// We arrive here when the cache seems up-to-date. However,
+        	// it is possible that the cache contains items which should
+        	// no longer be there. We need to find those and remove those.
+        	
+	        // First create map id->index for the pages that should be there.
+	        $dataitems = array();
+	        foreach($pageids as $num=>$row)
+	        	$dataitems[trim($row[0])] = $num;
+	        $cache = p_get_metadata($ID, $mkey . "_data");
+	        
+	        // Now do the same things for the pages that ARE there.
+	        // Figure out which row-element is the page id.
+	        $idx = 0;
+	        foreach($data['cols'] as $key=>$value) {
+	        	if($key == '%pageid%') break;
+	        	$idx++;
+	        }
+	        $cacheitems = array();
+	        foreach($cache as $num=>$row) 
+	        	$cacheitems[trim($row[$idx])] = $num;
+	        
+	        // Now calculate the difference and update cache
+	        $diff = array_diff_key($cacheitems, $dataitems);
+	        if(count($diff) > 0) {
+	        	foreach($diff as $key => $num)
+	        		unset($cache[$num]);
+	        	$md = array($mkey . "_cachedate" => time(), $mkey . "_data" => $cache);
+	        	p_set_metadata($ID, $md);
+	        }
+        }
 	}
 
 	function _renderTemplate($wikipage, $data, $rows, $R) {
@@ -268,80 +290,109 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 	}
 
 	
-	function _postRender($data, $numrows) {
+	function _renderPagination($data, $numrows) {
 		global $ID;
 		// Add pagination controls
 		if($data['limit']){
+			$params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
+            //$params['datasrt'] = $_REQUEST['datasrt'];
 			$offset = (int) $_REQUEST['dataofs'];
             if($offset){
                 $prev = $offset - $data['limit'];
                 if($prev < 0) $prev = 0;
 
-                // keep url params
-                $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
-                //$params['datasrt'] = $_REQUEST['datasrt'];
+                // keep url params            
                 $params['dataofs'] = $prev;
 
                 $text .= '<a href="'.wl($ID,$params).
                               '" title="'.'Previous'.
                               '" class="prev">'.'&larr; Previous Page'.'</a>';                
+            } else {
+            	$text .= '<span class="prev disabled">&larr; Previous Page</span>';
             }
 
-            $text .= '&nbsp;';
-
+            for($i=1; $i <= 1 + $numrows / $data['limit']; $i++) {
+            	$offs = ($i - 1) * $data['limit'];
+            	$params['dataofs'] = $offs;
+            	$selected = $offs == $_REQUEST['dataofs'] ? ' class="selected"': '';
+            	$text .= '<a href="'.wl($ID, $params).'"' . $selected . '>' . $i. '</a>';
+            }
+            
             if($numrows - $offset > $data['limit']){
                 $next = $offset + $data['limit'];
 
-                // keep url params
-                $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
-                //$params['datasrt'] = $_REQUEST['datasrt'];
+                // keep url params                
                 $params['dataofs'] = $next;
 
                 $text .= '<a href="'.wl($ID,$params).
                               '" title="'.'Next'.
                               '" class="next">'.'Next Page &rarr;'.'</a>';
+            } else {
+            	$text .= '<span class="next disabled">Next Page &rarr;</span>';	
             }
+            
             if($text != '&nbsp;') 
             	return '<div class="prevnext">' . $text . '</div>';
             return "";
         }
 	}
 	
-	function _match_filters($keys, $datarow) {
+		function _match_filters($data, $datarows) {
 		/* Get whole $data as input and
 		 * - generate keys
 		 * - treat multi-value columns specially, i.e. add 's' to key and look at individual values
 		 */
+		$out = array();
+		$keys = array();
+		foreach($data['headers'] as $k => $v)
+			$keys[$v] = $k;
 		$filters = $this->dthlp->_get_filters();
-		$matched = True;
-		$datarow = array_values($datarow);
-		foreach($filters as $f) {
-			switch($f['compare']) {
-				case 'LIKE':
-					$comp = $this->_match_wildcard($f['value'], $datarow[$keys[$f['key']]]);
-					break;
-				case 'NOT LIKE':
-					$comp = !$this->_match_wildcard($f['value'], $datarow[$keys[$f['key']]]);
-					break;
-				default:
-					$comp = False;
+		foreach($datarows as $dr) { 
+			$matched = True;
+			$datarow = array_values($dr);
+			foreach($filters as $f) {
+				if (strcasecmp($f['key'], 'any') == 0) {
+					$cols = array_keys($keys);
+				} else {
+					$cols = array($f['key']);
+				}
+				$colmatch = False;
+				foreach($cols as $col) {
+					$multi = $data['cols'][$col]['multi'];
+					if($multi) $col .= 's';
+					$idx = $keys[$col];
+					switch($f['compare']) {
+						case 'LIKE':
+							$comp = $this->_match_wildcard($f['value'], $datarow[$idx]);
+							break;
+						case 'NOT LIKE':
+							$comp = !$this->_match_wildcard($f['value'], $datarow[$idx]);
+							break;
+						case '=':
+							$f['compare'] = '==';
+						default:
+							$evalstr = $datarow[$idx] . $f['compare'] . $f['value'];
+							$comp = eval('return ' . $evalstr . ';');
+					}
+					$colmatch = $colmatch || $comp;
+				}
+				if($f['logic'] == 'AND')
+					$matched = $matched && $colmatch;
+				else
+					$matched = $matched || $colmatch;
 			}
-			if($f['logic'] == 'AND')
-				$matched = $matched && $comp;
-			else
-				$matched = $matched || $comp;
+			if($matched) $out[] = $dr;
 		}
-		return $matched;
+		return $out;
 	}
 	
 	function _match_wildcard( $wildcard_pattern, $haystack ) {
 		$regex = str_replace(
- 	    	array("%", "?"), // wildcard chars
+ 	    	array("%", "\?"), // wildcard chars
     	 	array('.*','.'),   // regexp chars
      		preg_quote($wildcard_pattern)
    		);
-   	
-		return preg_match('/^'.$regex.'$/is', $haystack);
+		return preg_match('/^\s*'.$regex.'$/im', $haystack);
 	}
 	
 	function nullList($data, $clist, &$R) {

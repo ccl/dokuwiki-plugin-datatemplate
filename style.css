@@ -1,0 +1,63 @@
+form.filterform_plugin fieldset.filterform {
+	display: table;
+	width: 90%;
+	margin-top: 15px;
+	margin-bottom: 15px;
+}
+
+form.filterform_plugin .cell{
+	display: table-cell;
+	padding: 5px 10px;
+}
+
+form.filterform_plugin label.text {
+	width: 100%;
+}
+
+form.filterform_plugin label.text input {
+	width: 100%;
+}
+
+form.filterform_plugin label.row {
+	display: block;
+	padding: 5px 10px;
+	text-align: left;
+}
+
+form.filterform_plugin div.group {
+	text-align: left;
+	font-weight: bold;
+	padding: 5px 10px;
+}
+
+div.dokuwiki div.prevnext {
+	border-bottom: 1px solid #CCC;
+	border-top: 1px solid #CCC;
+	margin: 0px 0px 0.5em 1.5em;
+	text-align: center;
+}
+
+div.dokuwiki div.prevnext a {
+	margin: 0px 0px 0.5em 0.5em;
+}
+
+div.dokuwiki div.prevnext a.selected {
+	font-weight: bold;
+}
+
+div.dokuwiki div.prevnext .prev {
+	float:left;
+	width: 20%;
+	text-align: left;
+}
+
+div.dokuwiki div.prevnext .next {
+	float:right;
+	width: 20%;
+	text-align: right;
+}
+
+div.dokuwiki div.prevnext .disabled {
+	color: #666;
+}
+
