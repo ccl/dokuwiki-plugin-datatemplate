@@ -132,7 +132,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 			// substitutions after the parsing
 			$wikipage = preg_split('/\#/u', $data['template'], 2);
 	
-			$R->doc .= '<div style="clear:both;">&nbsp;</div>';
 			$R->doc .= $this->_renderPagination($data, count($datarows));
 			$this->_renderTemplate($wikipage, $data, $rows, $R);
 			$R->doc .= $this->_renderPagination($data, count($datarows));
@@ -142,6 +141,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 	}
 	
 	function _checkAndBuildMeta($data, $sql, $mkey) {
+		global $ID;
 		// Check and generation of cached data to avoid
 		// repeated use of the SQLite queries, which can end up
 		// being quite slow.
