@@ -107,6 +107,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 			$datarows = $rows ? $rows : p_get_metadata($ID, $mkey . "_data");
 			//dbg("Datarows: " . count($datarows) . "\n" . "Rows: " . count($rows));
 			$datarows = $this->_match_filters($data, $datarows);
+
 			if(count($datarows) < $_REQUEST['dataofs']) $_REQUEST['dataofs'] = 0;
 			
 			$rows = array();
@@ -289,7 +290,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 		$R->doc .= '</div>';
 	}
 
-	
 	function _renderPagination($data, $numrows) {
 		global $ID;
 		// Add pagination controls
@@ -337,7 +337,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         }
 	}
 	
-		function _match_filters($data, $datarows) {
+	function _match_filters($data, $datarows) {
 		/* Get whole $data as input and
 		 * - generate keys
 		 * - treat multi-value columns specially, i.e. add 's' to key and look at individual values
