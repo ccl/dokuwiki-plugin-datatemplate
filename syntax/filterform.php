@@ -100,7 +100,7 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
 	function _htmlform($data){
         global $ID;
 
-        $form = new Doku_Form(array('class' => 'filterform_plugin'));
+        $form = new Doku_Form(array('class' => 'filterform_plugin', 'action' => wl($ID)));
         $form->addHidden('filterform', $ID);
         $form->addElement(form_openfieldset(array('_legend' => 'Search/Filter', 'class' => 'filterform')));
         $form->addElement(form_makeMenuField('field', $data['fields'], '', '', '', 'cell menu'));
