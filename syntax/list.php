@@ -7,7 +7,7 @@
 
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
-define('DEBUG', false);
+define('DEBUG', true);
 
 // Check for presence of data plugin
 $dataPluginFile = DOKU_PLUGIN.'data/syntax/table.php';
@@ -18,18 +18,29 @@ if(file_exists($dataPluginFile)){
     return;
 }
 
+require_once(DOKU_PLUGIN.'datatemplate/syntax/inc/cache.php');
+
 /**
  * This inherits from the table syntax of the data plugin, because it's basically the
  * same, just different output
  */
 class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
+    var $dtc = null; //A cache instance
+    /**
+    * Constructor.
+    */
+    function __construct(){
+        parent::syntax_plugin_data_table();
+        $this->dtc = new datatemplate_cache($this->dthlp);
+    }
+
     /**
      * Connect pattern to lexer
      */
     function connectTo($mode) {
         $this->Lexer->addSpecialPattern('----+ *datatemplatelist(?: [ a-zA-Z0-9_]*)?-+\n.*?\n----+',
-            $mode, 'plugin_datatemplate_list');
+        $mode, 'plugin_datatemplate_list');
     }
 
     function handle($match, $state, $pos, &$handler){
@@ -94,85 +105,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         return $sql;
     }
 
-    /**
-     * Check and generation of cached data to avoid
-     * repeated use of the SQLite queries, which can end up
-     * being quite slow.
-     *
-     * @param array $data from the handle function
-     * @param string $sql stripped SQL
-     * @param string $mkey hash for identification
-     */
-    function _checkAndBuildMeta($data, $sql, $mkey) {
-        global $ID;
-        $sqlite = $this->dthlp->_getDB();
 
-        // Build minimalistic data array for checking the cache
-        $dtcc = array();
-        $dtcc['cols'] = array(
-            '%pageid%' => array(
-                    'multi' => '',
-                    'key' => '%pageid%',
-                    'title' => 'Title',
-                    'type' => 'page',
-        ));
-        $dtcc['filter'] = $data['filter'];
-        $sqlcc = $this->_buildSQL($dtcc);
-        $res = $sqlite->query($sqlcc);
-        $pageids = sqlite_fetch_all($res, SQLITE_NUM);
-
-        $cachedate = p_get_metadata($ID, $mkey . "_cachedate");
-        if(DEBUG) dbg("Cachedate: " . $cachedate);
-
-        $latest = 0;
-        if($cachedate) {
-            // Check for newest page in SQL result
-            if(DEBUG) dbg("Checking " . count($pageids) . " entries for updates.");
-            foreach($pageids as $pageid) {
-                $modified = filemtime(wikiFN($pageid[0]));
-                $latest = ($modified > $latest) ? $modified : $latest;
-            }
-            if(DEBUG) dbg("Latest: " . $latest);
-        }
-        if(!$cachedate || $latest > (int) $cachedate  || isset($_REQUEST['purge'])) {
-            if(DEBUG) dbg("Rebuilding cache.");
-            $res = $sqlite->query($sql);
-            $rows = sqlite_fetch_all($res, SQLITE_NUM);
-            $md = array($mkey . "_cachedate" => time(), $mkey . "_data" => $rows);
-            p_set_metadata($ID, $md);
-        } else {
-            // We arrive here when the cache seems up-to-date. However,
-            // it is possible that the cache contains items which should
-            // no longer be there. We need to find those and remove those.
-
-            // First create map id->index for the pages that should be there.
-            $dataitems = array();
-            foreach($pageids as $num=>$row)
-            $dataitems[trim($row[0])] = $num;
-            $cache = p_get_metadata($ID, $mkey . "_data");
-
-            // Now do the same things for the pages that ARE there.
-            // Figure out which row-element is the page id.
-            $idx = 0;
-            foreach($data['cols'] as $key=>$value) {
-                if($key == '%pageid%') break;
-                $idx++;
-            }
-            $cacheitems = array();
-            foreach($cache as $num=>$row)
-            $cacheitems[trim($row[$idx])] = $num;
-
-            // Now calculate the difference and update cache
-            $diff = array_diff_key($cacheitems, $dataitems);
-            if(DEBUG) dbg("Cache count difference: " . count($diff));
-            if(count($diff) > 0) {
-                foreach($diff as $key => $num)
-                unset($cache[$num]);
-                $md = array($mkey . "_cachedate" => time(), $mkey . "_data" => $cache);
-                p_set_metadata($ID, $md);
-            }
-        }
-    }
 
     /**
      * Create output
@@ -182,10 +115,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         if(is_null($data)) return false;
 
         $sql = $this->_buildSQL($data);
-        $mkey = 'datatemplate_' . md5($sql);
 
         if($format == 'metadata') {
-            $this->_checkAndBuildMeta($data, $sql, $mkey);
+            // First remove metadata from previous plugin versions
+            $this->dtc->removeMeta($R);
+            $this->dtc->checkAndBuildCache($data, $sql, $this);
         }
 
         if($format == 'xhtml') {
@@ -194,18 +128,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             if(!array_key_exists('template', $data)) {
                 // If keyword "template" not present, we will leave
                 // the rendering to the parent class.
-                static $msgout = false;
-                if($msgout) {
-                    msg("datatemplatelist: no template specified, using standard table output.");
-                    $msgout = false;
-                }
-                parent::render($format, $R, $data);
-                return;
+                msg("datatemplatelist: no template specified, using standard table output.");
+                return parent::render($format, $R, $data);
             }
 
-            $cnt = 0;
-
-            $datarows = $rows ? $rows : p_get_metadata($ID, $mkey . "_data");
+            $datarows = $this->dtc->getData($sql);
             //dbg("Datarows: " . count($datarows) . "\n" . "Rows: " . count($rows));
             $datarows = $this->_match_filters($data, $datarows);
 
@@ -213,6 +140,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
             $rows = array();
             $i = 0;
+            $cnt = 0;
             foreach($datarows as $row) {
                 $i++;
                 if($i - 1 < $_REQUEST['dataofs']) continue;
@@ -227,28 +155,33 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 return true;
             }
 
-            // The following code is taken more or less from the templater plugin.
-            // We are not using the plugin directly, because we want to use the
-            // data plugin's treatment of URLs. Hence, we are going to do the
-            // substitutions after the parsing
             $wikipage = preg_split('/\#/u', $data['template'], 2);
 
             $R->doc .= $this->_renderPagination($data, count($datarows));
-            $this->_renderTemplate($wikipage, $data, $rows, $R);
+            $this->_renderTemplate($wikipage[0], $data, $rows, $R);
             $R->doc .= $this->_renderPagination($data, count($datarows));
             return true;
         }
         return false;
     }
 
-
-
-    function _renderTemplate($wikipage, $data, $rows, $R) {
+    /**
+     * Rendering of the template. The code is heavily inspired by the templater plugin by
+     * Jonathan Arkell. Not taken into consideration are correction of relative links in the
+     * template, and circular dependencies.
+     *
+     * @param string $wikipage the id of the wikipage containing the template
+     * @param array $data output of the handle function
+     * @param array $rows the result of the sql query
+     * @param reference $R the dokuwiki renderer
+     * @return boolean Whether the page has been correctly (not: succesfully) processed.
+     */
+    function _renderTemplate($wikipage, $data, $rows, &$R) {
         global $ID;
-        resolve_pageid(getNS($ID), $wikipage[0], $exists);          // resolve shortcuts
+        resolve_pageid(getNS($ID), $wikipage, $exists);          // resolve shortcuts
 
         // check for permission
-        if (auth_quickaclcheck($wikipage[0]) < 1) {
+        if (auth_quickaclcheck($wikipage) < 1) {
             // False means no permissions
             $R->doc .= '<div class="datatemplatelist"> No permissions to view the template </div>';
             return true;
@@ -256,11 +189,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         // Now open the template, parse it and do the substitutions.
         // FIXME: This does not take circular dependencies into account!
-        $file = wikiFN($wikipage[0]);
+        $file = wikiFN($wikipage);
         if (!@file_exists($file)) {
             $R->doc .= '<div class="datatemplatelist">';
-            $R->doc .= "Template {$wikipage[0]} not found. ";
-            $R->internalLink($wikipage[0], '[Click here to create it]');
+            $R->doc .= "Template {$wikipage} not found. ";
+            $R->internalLink($wikipage, '[Click here to create it]');
             $R->doc .= '</div>';
             return true;
         }
@@ -319,114 +252,135 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         }
         $R->doc .= $text;
         $R->doc .= '</div>';
-}
 
-function _renderPagination($data, $numrows) {
-    global $ID;
-    // Add pagination controls
-    if($data['limit']){
-        $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
-        //$params['datasrt'] = $_REQUEST['datasrt'];
-        $offset = (int) $_REQUEST['dataofs'];
-        if($offset){
-            $prev = $offset - $data['limit'];
-            if($prev < 0) $prev = 0;
-
-            // keep url params
-            $params['dataofs'] = $prev;
-
-            $text .= '<a href="'.wl($ID,$params).
-                              '" title="'.'Previous'.
-                              '" class="prev">'.'&larr; Previous Page'.'</a>';
-        } else {
-            $text .= '<span class="prev disabled">&larr; Previous Page</span>';
-        }
-
-        for($i=1; $i <= ceil($numrows / $data['limit']); $i++) {
-            $offs = ($i - 1) * $data['limit'];
-            $params['dataofs'] = $offs;
-            $selected = $offs == $_REQUEST['dataofs'] ? ' class="selected"': '';
-            $text .= '<a href="'.wl($ID, $params).'"' . $selected . '>' . $i. '</a>';
-        }
-
-        if($numrows - $offset > $data['limit']){
-            $next = $offset + $data['limit'];
-
-            // keep url params
-            $params['dataofs'] = $next;
-
-            $text .= '<a href="'.wl($ID,$params).
-                              '" title="'.'Next'.
-                              '" class="next">'.'Next Page &rarr;'.'</a>';
-        } else {
-            $text .= '<span class="next disabled">Next Page &rarr;</span>';
-        }
-
-        if($text != '&nbsp;')
-        return '<div class="prevnext">' . $text . '</div>';
-        return "";
+        return true;
     }
-}
 
-function _match_filters($data, $datarows) {
-    /* Get whole $data as input and
-     * - generate keys
-     * - treat multi-value columns specially, i.e. add 's' to key and look at individual values
+    /**
+     * Render page navigation area if applicable.
+     *
+     * @param array $data The output of the handle function.
+     * @param int $numrows the total number of rows in the sql result.
+     * @return string The html for the pagination.
      */
-    $out = array();
-    $keys = array();
-    foreach($data['headers'] as $k => $v)
-    $keys[$v] = $k;
-    $filters = $this->dthlp->_get_filters();
-    foreach($datarows as $dr) {
-        $matched = True;
-        $datarow = array_values($dr);
-        foreach($filters as $f) {
-            if (strcasecmp($f['key'], 'any') == 0) {
-                $cols = array_keys($keys);
+    function _renderPagination($data, $numrows) {
+        global $ID;
+        // Add pagination controls
+        if($data['limit']){
+            $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
+            //$params['datasrt'] = $_REQUEST['datasrt'];
+            $offset = (int) $_REQUEST['dataofs'];
+            if($offset){
+                $prev = $offset - $data['limit'];
+                if($prev < 0) $prev = 0;
+
+                // keep url params
+                $params['dataofs'] = $prev;
+
+                $text .= '<a href="'.wl($ID,$params).
+                                      '" title="'.'Previous'.
+                                      '" class="prev">'.'&larr; Previous Page'.'</a>';
             } else {
-                $cols = array($f['key']);
+                $text .= '<span class="prev disabled">&larr; Previous Page</span>';
             }
-            $colmatch = False;
-            foreach($cols as $col) {
-                $multi = $data['cols'][$col]['multi'];
-                if($multi) $col .= 's';
-                $idx = $keys[$col];
-                switch($f['compare']) {
-                    case 'LIKE':
-                        $comp = $this->_match_wildcard($f['value'], $datarow[$idx]);
-                        break;
-                    case 'NOT LIKE':
-                        $comp = !$this->_match_wildcard($f['value'], $datarow[$idx]);
-                        break;
-                    case '=':
-                        $f['compare'] = '==';
-                    default:
-                        $evalstr = $datarow[$idx] . $f['compare'] . $f['value'];
-                        $comp = eval('return ' . $evalstr . ';');
-                }
-                $colmatch = $colmatch || $comp;
+
+            for($i=1; $i <= ceil($numrows / $data['limit']); $i++) {
+                $offs = ($i - 1) * $data['limit'];
+                $params['dataofs'] = $offs;
+                $selected = $offs == $_REQUEST['dataofs'] ? ' class="selected"': '';
+                $text .= '<a href="'.wl($ID, $params).'"' . $selected . '>' . $i. '</a>';
             }
-            if($f['logic'] == 'AND')
-            $matched = $matched && $colmatch;
-            else
-            $matched = $matched || $colmatch;
+
+            if($numrows - $offset > $data['limit']){
+                $next = $offset + $data['limit'];
+
+                // keep url params
+                $params['dataofs'] = $next;
+
+                $text .= '<a href="'.wl($ID,$params).
+                                      '" title="'.'Next'.
+                                      '" class="next">'.'Next Page &rarr;'.'</a>';
+            } else {
+                $text .= '<span class="next disabled">Next Page &rarr;</span>';
+            }
+            return '<div class="prevnext">' . $text . '</div>';
         }
-        if($matched) $out[] = $dr;
     }
-    return $out;
-}
 
-function _match_wildcard( $wildcard_pattern, $haystack ) {
-    $regex = str_replace(
-    array("%", "\?"), // wildcard chars
-    array('.*','.'),   // regexp chars
-    preg_quote($wildcard_pattern)
-    );
-    return preg_match('/^\s*'.$regex.'$/im', $haystack);
-}
+    /**
+     * Apply filters to the (unfiltered) sql output.
+     *
+     * @param array $data The output of the handle function.
+     * @param array $datarows The output of the sql request
+     * @return array The filtered sql output.
+     */
+    function _match_filters($data, $datarows) {
+        /* Get whole $data as input and
+         * - generate keys
+         * - treat multi-value columns specially, i.e. add 's' to key and look at individual values
+         */
+        $out = array();
+        $keys = array();
+        foreach($data['headers'] as $k => $v) {
+            $keys[$v] = $k;
+        }
+        $filters = $this->dthlp->_get_filters();
+        foreach($datarows as $dr) {
+            $matched = True;
+            $datarow = array_values($dr);
+            foreach($filters as $f) {
+                if (strcasecmp($f['key'], 'any') == 0) {
+                    $cols = array_keys($keys);
+                } else {
+                    $cols = array($f['key']);
+                }
+                $colmatch = False;
+                foreach($cols as $col) {
+                    $multi = $data['cols'][$col]['multi'];
+                    if($multi) $col .= 's';
+                    $idx = $keys[$col];
+                    switch($f['compare']) {
+                        case 'LIKE':
+                            $comp = $this->_match_wildcard($f['value'], $datarow[$idx]);
+                            break;
+                        case 'NOT LIKE':
+                            $comp = !$this->_match_wildcard($f['value'], $datarow[$idx]);
+                            break;
+                        case '=':
+                            $f['compare'] = '==';
+                        default:
+                            $evalstr = $datarow[$idx] . $f['compare'] . $f['value'];
+                            $comp = eval('return ' . $evalstr . ';');
+                    }
+                    $colmatch = $colmatch || $comp;
+                }
+                if($f['logic'] == 'AND') {
+                    $matched = $matched && $colmatch;
+                } else {
+                    $matched = $matched || $colmatch;
+                }
+            }
+            if($matched) $out[] = $dr;
+        }
+        return $out;
+    }
 
-function nullList($data, $clist, &$R) {
-    $R->doc .= '<div class="templatelist">Nothing.</div>';
-}
+    /**
+     * Match string against SQL wildcards.
+     * @param $wildcard_pattern
+     * @param $haystack
+     * @return boolean Whether the pattern matches.
+     */
+    function _match_wildcard( $wildcard_pattern, $haystack ) {
+        $regex = str_replace(
+        array("%", "\?"), // wildcard chars
+        array('.*','.'),   // regexp chars
+        preg_quote($wildcard_pattern)
+        );
+        return preg_match('/^\s*'.$regex.'$/im', $haystack);
+    }
+
+    function nullList($data, $clist, &$R) {
+        $R->doc .= '<div class="templatelist">Nothing.</div>';
+    }
 }
