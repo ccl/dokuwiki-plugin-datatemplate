@@ -1,7 +1,7 @@
 base    datatemplate
 author  Christoph Clausen
 email   christoph.clausen@gmail.com
-date    2010-08-01
+date    2010-12-30
 name    Data Template Plugin
 desc    Extension to the data plugin allowing for the use of templates.
 url     http://www.dokuwiki.org/plugin:datatemplate
