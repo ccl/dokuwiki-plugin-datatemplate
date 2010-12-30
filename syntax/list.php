@@ -7,7 +7,7 @@
 
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
-define('DEBUG', true);
+define('DEBUG', false);
 
 // Check for presence of data plugin
 $dataPluginFile = DOKU_PLUGIN.'data/syntax/table.php';
