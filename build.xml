@@ -2,14 +2,14 @@
 	<target depends="" name="wikidev">
 		<property file="../wikidev.properties" />
 		<echo message="Starting file transfer to ${server.name}" />
-		<exec dir="." executable="rsync" os="Mac OS X" failonerror="true">
+		<exec dir="." executable="rsync" os="${os}" failonerror="true">
 			<arg value="-auvz" />
-			<arg value="-e ssh" />
+			<arg value="${server.shell}" />
 			<arg value="--exclude=build.xml" />
 			<arg value="--exclude=.*" />
 			<arg value="--del" />
 			<arg value="./" />
-			<arg value="${server.user}@${server.name}:${server.path}" />
+			<arg value="${server.path}" />
 		</exec>
 	</target>
 </project>
