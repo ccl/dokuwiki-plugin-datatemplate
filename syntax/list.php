@@ -250,6 +250,15 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         foreach($replacers['vals_id'] as $num => $vals) {
             $text = str_replace($replacers['keys_id'][$num], $vals, $text);
         }
+        
+        // Replace unused placeholders by empty string
+        if(DEBUG) {
+			$matches = array();
+			preg_match('/@@.*?@@/', $text, $matches);
+			dbg("Unused placeholders\n:" . $matches);
+		}
+        
+        $text = preg_replace('/@@.*@@/', '', $text);
         $R->doc .= $text;
         $R->doc .= '</div>';
 

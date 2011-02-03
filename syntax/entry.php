@@ -123,8 +123,20 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
 		// render the instructructions on the fly
 		$text = p_render('xhtml', $instr, $info);
-
-		$R->doc .= str_replace($replacers['keys'], $replacers['vals'], $text);
+		
+		// replace in rendered wiki
+		$text = str_replace($replacers['keys'], $replacers['vals'], $text);
+		
+		// Remove unused placeholders
+		if(DEBUG) {
+			$matches = array();
+			preg_match('/@@.*?@@/', $text, $matches);
+			dbg("Unused placeholders\n:" . $matches);
+		}
+		
+		$text = preg_replace('/@@.*@@/', '', $text);
+		
+		$R->doc .= $text; 
 		$R->doc .= '</div>';
 		return true;
 	}
