@@ -86,28 +86,43 @@ class datatemplate_cache {
             // it is possible that the cache contains items which should
             // no longer be there. We need to find those and remove those.
 
-            // First create map id->index for the pages that should be there.
-            $dataitmes = array_flip($pageids);
-            $cache = $this->getData($sql);
+            // $pageids is an array of arrays, where the latter only contain
+            // one entry, the pageid. We need get rid of the second level of arrays:
+            foreach($pageids as $k => $v) {
+                $pageids[$k] = trim($v[0]);
+            }
+
+            // Then create map id->index for the pages that should be there.
+            $dataitems = array_flip($pageids);
 
             // Do the same things for the pages that ARE there.
             // Figure out which row-element is the page id.
+
             $idx = 0;
             foreach($data['cols'] as $key=>$value) {
                 if($key == '%pageid%') break;
                 $idx++;
             }
+            $cache = $this->getData($sql);
             $cacheitems = array();
-            foreach($cache as $num=>$row)
-            $cacheitems[trim($row[$idx])] = $num;
-
+            foreach($cache as $num=>$row) {
+                $cacheitems[trim($row[$idx])] = $num;
+            }
+            if(DEBUG) {
+                dbg("Expected pages in cache:\n" . print_r($dataitems, True));
+                dbg("Actual pages in cache:\n" . print_r($cacheitems, True));
+            }
             // Now calculate the difference and update cache if necessary.
             $diff = array_diff_key($cacheitems, $dataitems);
             if(DEBUG) dbg("Cache count difference: " . count($diff));
             if(count($diff) > 0) {
-                foreach($diff as $key => $num)
+                foreach($diff as $key => $num) {
+                    if(DEBUG) dbg("Removing from cache: $key (idx=$num)");
+                    if(DEBUG) dbg("Before:\n" . print_r($cache, True));
                     unset($cache[$num]);
-                file_put_contents($cachefile, $cache, LOCK_EX);
+                    if(DEBUG) dbg("After:\n" . print_r($cache, True));
+                }
+                file_put_contents($cachefile, serialize($cache), LOCK_EX);
             }
         }
     }

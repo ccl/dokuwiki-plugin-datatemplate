@@ -118,11 +118,13 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         if($format == 'metadata') {
             // First remove metadata from previous plugin versions
+            if(DEBUG) dbg("METADATA");
             $this->dtc->removeMeta($R);
             $this->dtc->checkAndBuildCache($data, $sql, $this);
         }
 
         if($format == 'xhtml') {
+            if(DEBUG) dbg("XHTML");
             $R->info['cache'] = false;
 
             if(!array_key_exists('template', $data)) {
@@ -250,6 +252,15 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         foreach($replacers['vals_id'] as $num => $vals) {
             $text = str_replace($replacers['keys_id'][$num], $vals, $text);
         }
+
+        // Replace unused placeholders by empty string
+        if(DEBUG) {
+			$matches = array();
+			preg_match('/@@.*?@@/', $text, $matches);
+			dbg("Unused placeholders:\n" . print_r($matches, True));
+		}
+
+        $text = preg_replace('/@@.*@@/', '', $text);
         $R->doc .= $text;
         $R->doc .= '</div>';
 
@@ -325,6 +336,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             $keys[$v] = $k;
         }
         $filters = $this->dthlp->_get_filters();
+        if(!$datarows) return $out;
         foreach($datarows as $dr) {
             $matched = True;
             $datarow = array_values($dr);
