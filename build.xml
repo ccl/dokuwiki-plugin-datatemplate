@@ -9,7 +9,7 @@
 			<arg value="--exclude=.*" />
 			<arg value="--del" />
 			<arg value="./" />
-			<arg value="${server.path}" />
+			<arg value="${server.path}datatemplate/" />
 		</exec>
 	</target>
 </project>
