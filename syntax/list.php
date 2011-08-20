@@ -7,7 +7,9 @@
 
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
-define('DEBUG', false);
+
+// Turn on/off debugging output
+define('DEBUG', true);
 
 // Check for presence of data plugin
 $dataPluginFile = DOKU_PLUGIN.'data/syntax/table.php';
@@ -26,10 +28,10 @@ require_once(DOKU_PLUGIN.'datatemplate/syntax/inc/cache.php');
  */
 class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
-    var $dtc = null; //A cache instance
+    var $dtc = null; // A cache instance
     /**
-    * Constructor.
-    */
+     * Constructor.
+     */
     function __construct(){
         parent::syntax_plugin_data_table();
         $this->dtc = new datatemplate_cache($this->dthlp);
@@ -40,7 +42,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      */
     function connectTo($mode) {
         $this->Lexer->addSpecialPattern('----+ *datatemplatelist(?: [ a-zA-Z0-9_]*)?-+\n.*?\n----+',
-        $mode, 'plugin_datatemplate_list');
+					$mode, 'plugin_datatemplate_list');
     }
 
     function handle($match, $state, $pos, &$handler){
@@ -70,9 +72,9 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         // For caching purposes, we always need to query the page id.
         if(!array_key_exists('%pageid%', $data['cols'])) {
             $data['cols']['%pageid%'] = array('multi' => '', 'key' => '%pageid%',
-                'title' => 'Title', 'type' => 'page');
+					      'title' => 'Title', 'type' => 'page');
             if(array_key_exists('headers', $data))
-            array_push($data['headers'], '%pageid%');
+		array_push($data['headers'], '%pageid%');
         }
         return $data;
     }
@@ -111,21 +113,21 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * Create output
      */
     function render($format, &$R, $data) {
-        global $ID;
+	global $ID;
         if(is_null($data)) return false;
 
         $sql = $this->_buildSQL($data);
 
         if($format == 'metadata') {
-            // First remove metadata from previous plugin versions
-            if(DEBUG) dbg("METADATA");
+	    // Remove metadata from previous plugin versions
+	    if(DEBUG) dbg("METADATA");
             $this->dtc->removeMeta($R);
-            $this->dtc->checkAndBuildCache($data, $sql, $this);
         }
 
         if($format == 'xhtml') {
             if(DEBUG) dbg("XHTML");
             $R->info['cache'] = false;
+            $this->dtc->checkAndBuildCache($data, $sql, $this);
 
             if(!array_key_exists('template', $data)) {
                 // If keyword "template" not present, we will leave
@@ -244,8 +246,8 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         $text = p_render('xhtml', $instr, $info);
         // remove toc, section edit buttons and category tags
         $patterns = array('!<div class="toc">.*?(</div>\n</div>)!s',
-                              '#<!-- SECTION \[(\d*-\d*)\] -->#e',
-                              '!<div class="category">.*?</div>!s');
+			  '#<!-- SECTION \[(\d*-\d*)\] -->#e',
+			  '!<div class="category">.*?</div>!s');
         $replace  = array('','','');
         $text = preg_replace($patterns,$replace,$text);
         // Do remaining replacements
@@ -255,13 +257,13 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         // Replace unused placeholders by empty string
         if(DEBUG) {
-			$matches = array();
-			preg_match('/@@.*?@@/', $text, $matches);
-			dbg("Unused placeholders:\n" . print_r($matches, True));
-		}
+	    $matches = array();
+	    preg_match('/@@.*?@@/', $text, $matches);
+	    dbg("Unused placeholders:\n" . print_r($matches, True));
+	}
+        $text = preg_replace('/@@.*?@@/', '', $text);
 
-        $text = preg_replace('/@@.*@@/', '', $text);
-        $R->doc .= $text;
+	$R->doc .= $text;
         $R->doc .= '</div>';
 
         return true;
@@ -289,8 +291,8 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 $params['dataofs'] = $prev;
 
                 $text .= '<a href="'.wl($ID,$params).
-                                      '" title="'.'Previous'.
-                                      '" class="prev">'.'&larr; Previous Page'.'</a>';
+		    '" title="'.'Previous'.
+		    '" class="prev">'.'&larr; Previous Page'.'</a>';
             } else {
                 $text .= '<span class="prev disabled">&larr; Previous Page</span>';
             }
@@ -309,8 +311,8 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 $params['dataofs'] = $next;
 
                 $text .= '<a href="'.wl($ID,$params).
-                                      '" title="'.'Next'.
-                                      '" class="next">'.'Next Page &rarr;'.'</a>';
+		    '" title="'.'Next'.
+		    '" class="next">'.'Next Page &rarr;'.'</a>';
             } else {
                 $text .= '<span class="next disabled">Next Page &rarr;</span>';
             }
@@ -352,17 +354,17 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                     if($multi) $col .= 's';
                     $idx = $keys[$col];
                     switch($f['compare']) {
-                        case 'LIKE':
-                            $comp = $this->_match_wildcard($f['value'], $datarow[$idx]);
-                            break;
-                        case 'NOT LIKE':
-                            $comp = !$this->_match_wildcard($f['value'], $datarow[$idx]);
-                            break;
-                        case '=':
-                            $f['compare'] = '==';
-                        default:
-                            $evalstr = $datarow[$idx] . $f['compare'] . $f['value'];
-                            $comp = eval('return ' . $evalstr . ';');
+		    case 'LIKE':
+			$comp = $this->_match_wildcard($f['value'], $datarow[$idx]);
+			break;
+		    case 'NOT LIKE':
+			$comp = !$this->_match_wildcard($f['value'], $datarow[$idx]);
+			break;
+		    case '=':
+			$f['compare'] = '==';
+		    default:
+			$evalstr = $datarow[$idx] . $f['compare'] . $f['value'];
+			$comp = eval('return ' . $evalstr . ';');
                     }
                     $colmatch = $colmatch || $comp;
                 }
@@ -384,15 +386,17 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * @return boolean Whether the pattern matches.
      */
     function _match_wildcard( $wildcard_pattern, $haystack ) {
-        $regex = str_replace(
-        array("%", "\?"), // wildcard chars
-        array('.*','.'),   // regexp chars
-        preg_quote($wildcard_pattern)
-        );
-        return preg_match('/^\s*'.$regex.'$/im', $haystack);
+	$regex = str_replace(array("%", "\?"), // wildcard chars
+			     array('.*','.'),   // regexp chars
+			     preg_quote($wildcard_pattern)
+			     );
+	return preg_match('/^\s*'.$regex.'$/im', $haystack);
     }
 
     function nullList($data, $clist, &$R) {
         $R->doc .= '<div class="templatelist">Nothing.</div>';
     }
 }
+/* Local Variables: */
+/* c-basic-offset: 4 */
+/* End: */
