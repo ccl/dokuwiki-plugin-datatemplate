@@ -31,6 +31,9 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 	// The parser of the parent class should have nicely parsed all
 	// parameters. We want to extract the template parameter and treat
 	// it separately.
+
+	// strip datatemplateentry to get right classes
+        $match = preg_replace('/datatemplateentry/', '', $match, 1);
 	$data = parent::handle($match, $state, $pos, $handler);
 	if(array_key_exists('template',  $data['cols'])) {
 	    unset($data['cols']['template']);
@@ -83,7 +86,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 	$rawFile = io_readfile($file);
 
 	// embed the included page
-	$R->doc .= '<div class="' . $data['classes'] . '">';
+	$R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
 
 	foreach($data['data'] as $key => $val){
 	    if($val == '' || !count($val)) continue;
