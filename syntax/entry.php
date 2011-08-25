@@ -104,6 +104,13 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 	// render the instructructions on the fly
 	$text = p_render('xhtml', $instr, $info);
 
+	// remove toc, section edit buttons and category tags
+	$patterns = array('!<div class="toc">.*?(</div>\n</div>)!s',
+			  '#<!-- EDIT.*? \[(\d*-\d*)\] -->#e',
+			  '!<div class="category">.*?</div>!s');
+	$replace  = array('','','');
+	$text = preg_replace($patterns,$replace,$text);
+
 	$R->doc .= $text;
 	$R->doc .= '</div>';
 
