@@ -43,6 +43,28 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 	return $data;
     }
 
+
+    /**
+     * Create output or save the data
+     */
+    function render($format, &$renderer, $data) {
+        global $ID;
+        switch ($format){
+            case 'xhtml':
+                $this->_showData($data,$renderer);
+                return true;
+            case 'metadata':
+                $this->_saveData($data,$ID,$renderer);
+                return true;
+            case 'plugin_data_edit':
+                $this->_editData($data, $renderer);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+
     /**
      * Generate wiki output from instructions
      */
@@ -221,8 +243,8 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Save date to the database
      */
-    function _saveData($data,$id,$title){
-	global $ID;
+    function _saveData($data,$id,&$renderer){
+	$title = $renderer->meta['title'];
 	// We are overriding this function to modify the stored
 	// page title, which possibly should be generated using the template.
 
@@ -234,7 +256,6 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 	}
 
 	$instr = $this->_getInstructions($data);
-	$renderer =& p_get_renderer('metadata');
 
 	// loop through the instructions
 	foreach ($instr as $instruction){
