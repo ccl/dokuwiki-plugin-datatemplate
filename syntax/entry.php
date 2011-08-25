@@ -242,29 +242,29 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
     /**
      * Save date to the database
+     *
+     * We are overriding this function to properly generate the metadata for
+     * the parsed template, such that page title and table of contents are
+     * correct.
      */
     function _saveData($data,$id,&$renderer){
-	$title = $renderer->meta['title'];
-	// We are overriding this function to modify the stored
-	// page title, which possibly should be generated using the template.
+	$instr = $this->_getInstructions($data);
 
-	// If certain conditions are not fulfilled, we cannot extract a title.
-	// In that case just use the title that has been handed over.
-	if(!array_key_exists('template', $data) || $title ) {
-	    parent::_saveData($data, $id, $title);
+	if(!array_key_exists('template', $data)) {
+	    parent::_saveData($data, $id, $renderer->meta['title']);
 	    return;
 	}
 
-	$instr = $this->_getInstructions($data);
+	// Remove document_start and document_end from instructions
+	array_shift($instr);
+	array_pop($instr);
 
 	// loop through the instructions
-	foreach ($instr as $instruction){
-	    // execute the callback against the renderer
-	    if ($instruction[0] == 'header' && !$title) $title = $instruction[1][0];
-	    call_user_func_array(array(&$renderer, $instruction[0]), $instruction[1]);
+	for($i = 0; $i < count($instr); $i++) {
+	    call_user_func_array(array($renderer, $instr[$i][0]), $instr[$i][1]);
 	}
 
-	parent::_saveData($data, $id, $title);
+	parent::_saveData($data, $id, $renderer->meta['title']);
     }
 }
 /* Local Variables: */
