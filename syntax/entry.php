@@ -44,16 +44,60 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     }
 
     /**
-     * Output the data in a table
+     * Generate wiki output from instructions
      */
-    function _showData($data,&$R){
+    function _showData($data, &$R) {
 	global $ID;
 	$R->info['cache'] = false;
+	$instr = $this->_getInstructions($data);
 	if(!array_key_exists('template', $data)) {
 	    // If keyword "template" not present, we can leave
 	    // the rendering to the parent class.
 	    parent::_showData($data, $R);
 	    return;
+	}
+	// check for permission
+	if (auth_quickaclcheck($wikipage[0]) < 1) {
+	    // False means no permissions
+	    $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
+	    return true;
+	}
+
+	$wikipage = preg_split('/\#/u', $data['template'], 2);
+	resolve_pageid(getNS($ID), $wikipage[0], $exists);          // resolve shortcuts
+
+	// Check if page exists at all.
+	$file = wikiFN($wikipage[0]);
+	if (!@file_exists($file)) {
+	    $R->doc .= '<div class="datatemplateentry">';
+	    $R->doc .= "Template {$wikipage[0]} not found. ";
+	    $R->internalLink($wikipage[0], '[Click here to create it]');
+	    $R->doc .= '</div>';
+	    return true;
+	}
+
+	// embed the included page
+	$R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
+
+	// render the instructructions on the fly
+	$text = p_render('xhtml', $instr, $info);
+
+	$R->doc .= $text;
+	$R->doc .= '</div>';
+
+	return true;
+    }
+
+
+    /**
+     * Read and process template file and return wiki instructions.
+     */
+    function _getInstructions($data){
+	global $ID;
+	if(!array_key_exists('template', $data)) {
+	    // If keyword "template" not present, we can leave
+	    // the rendering to the parent class.
+	    return null;
 	}
 
 	// The following code is taken more or less from the templater plugin.
@@ -64,29 +108,15 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
 	resolve_pageid(getNS($ID), $wikipage[0], $exists);          // resolve shortcuts
 
-	// check for permission
-	if (auth_quickaclcheck($wikipage[0]) < 1) {
-	    // False means no permissions
-	    $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
-	    return true;
-	}
-
 	// Now open the template, parse it and do the substitutions.
 	// FIXME: This does not take circular dependencies into account!
 	$file = wikiFN($wikipage[0]);
 	if (!@file_exists($file)) {
-	    $R->doc .= '<div class="datatemplateentry">';
-	    $R->doc .= "Template {$wikipage[0]} not found. ";
-	    $R->internalLink($wikipage[0], '[Click here to create it]');
-	    $R->doc .= '</div>';
-	    return true;
+	    return null;
 	}
 
 	// Get the raw file, and parse it into its instructions. This could be cached... maybe.
 	$rawFile = io_readfile($file);
-
-	// embed the included page
-	$R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
 
 	foreach($data['data'] as $key => $val){
 	    if($val == '' || !count($val)) continue;
@@ -106,45 +136,86 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 		$ret = '';
 		$ret_raw = '';
 		for ($i=0; $i<$cnt; $i++){
-		    $ret .= $this->dthlp->_formatData($data['cols'][$key], $val[$i],$R);
+		    $ret .= $this->_formatData($data['cols'][$key], $val[$i]);
 		    $ret_raw .= $val[$i];
 		    if($i < $cnt - 1) {
-			$ret .= '<span class="sep">, </span>';
+			$ret .= ', ';
 			$ret_raw .= ', ';
 		    }
 		}
 		$replacers['vals'][] = $ret;
 		$replacers['raw_vals'][] = $ret_raw;
 	    } else {
-		$replacers['vals'][] = $this->dthlp->_formatData($data['cols'][$key], $val, $R);
+		$replacers['vals'][] = $this->_formatData($data['cols'][$key], $val);
 		$replacers['raw_vals'][] = $val;
 	    }
 	}
 	// First do raw replacements
 	$raw = str_replace($replacers['raw_keys'], $replacers['raw_vals'], $rawFile);
-	if(DEBUG) dbg("RAW TEXT: \n" . $raw);
+	$raw = str_replace($replacers['keys'], $replacers['vals'], $raw);
+	$raw = preg_replace('/@@.*?@@/', '', $raw);
 	$instr = p_get_instructions($raw);
 
-	// render the instructructions on the fly
-	$text = p_render('xhtml', $instr, $info);
+	return $instr;
+    }
 
-	// replace in rendered wiki
-	if(DEBUG) dbg("RENDERED TEXT: \n" . $text);
-	$text = str_replace($replacers['keys'], $replacers['vals'], $text);
-	if(DEBUG) dbg("REPLACED TEXT: \n" . $text);
-
-	// Remove unused placeholders
-	if(DEBUG) {
-	    //$matches = array();
-	    $num = preg_match_all('/@@.*?@@/', $text, $matches);
-	    dbg("$num Unused placeholders\n:" . print_r($matches, true));
-	}
-	$text = preg_replace('/@@.*?@@/', '', $text);
-
-
-	$R->doc .= $text;
-	$R->doc .= '</div>';
-	return true;
+    /**
+     * The data plugin defines this function in its helper class with the purpose
+     * to output XHTML code for the different column types.
+     *   We want to let the dokuwiki renderer generate the required output, such
+     * that also metadata is handled correctly. Hence, we will try to translate
+     * each column type to the corresponding dokuwiki syntax.
+     */
+    function _formatData($column, $value){
+        global $conf;
+        $vals = explode("\n",$value);
+        $outs = array();
+        foreach($vals as $val){
+            $val = trim($val);
+            if($val=='') continue;
+            $type = $column['type'];
+            if (is_array($type)) $type = $type['type'];
+            switch($type){
+                case 'page':
+		    $outs[] = '[[' . $val. ']]';
+                    break;
+                case 'title':
+                    list($id,$title) = explode('|',$val,2);
+		    $outs[] = '[[' . $id . '|' . $title . ']]';
+                    break;
+                case 'nspage':
+                    $val = ':'.$column['key'].":$val";
+		    $outs[] = '[[' . $val . ']]';
+                    break;
+                case 'mail':
+                    list($id,$title) = explode(' ',$val,2);
+		    $outs[] = '[[' . $id . '|' . $title . ']]';
+                    break;
+                case 'url':
+                    $outs[] = '[[' . $val . ']]';
+		    break;
+                case 'tag':
+                    #FIXME not handled by datatemplate so far
+                    $outs[] = '<a href="'.wl(str_replace('/',':',cleanID($column['key'])),array('dataflt'=>$column['key'].':'.$val )).
+                              '" title="'.sprintf($this->getLang('tagfilter'),hsc($val)).
+                              '" class="wikilink1">'.hsc($val).'</a>';
+                    break;
+                case 'wiki':
+		    $outs[] = $data;
+                    break;
+                default:
+                    //$val = $this->_addPrePostFixes($column['type'], $val);
+                    if(substr($type,0,3) == 'img'){
+                        $sz = (int) substr($type,3);
+                        if(!$sz) $sz = 40;
+                        $title = $column['key'].': '.basename(str_replace(':','/',$val));
+			$outs[] = '{{' . $val . '}}';
+		    }else{
+                        $outs[] = $val;
+                    }
+            }
+        }
+        return join(', ',$outs);
     }
 
     /**
@@ -153,58 +224,25 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     function _saveData($data,$id,$title){
 	global $ID;
 	// We are overriding this function to modify the stored
-	// page title, which should be generated using the template.
+	// page title, which possibly should be generated using the template.
 
 	// If certain conditions are not fulfilled, we cannot extract a title.
 	// In that case just use the title that has been handed over.
-	if(!array_key_exists('template', $data)) {
+	if(!array_key_exists('template', $data) || $title ) {
 	    parent::_saveData($data, $id, $title);
 	    return;
 	}
-	$wikipage = preg_split('/\#/u', $data['template'], 2);
-	resolve_pageid(getNS($ID), $wikipage[0], $exists);
 
-	if (auth_quickaclcheck($wikipage[0]) < 1) {
-	    parent::_saveData($data, $id, $title);
-	    return;
-	}
-	$file = wikiFN($wikipage[0]);
-	if (!@file_exists($file)) {
-	    parent::_saveData($data, $id, $title);
-	    return;
-	}
-	$rawFile = io_readfile($file);
+	$instr = $this->_getInstructions($data);
+	$renderer =& p_get_renderer('metadata');
 
-	// Do Raw replacements
-	foreach($data['data'] as $key => $val){
-	    $replacers['raw_keys'][] = "@@!" . $key . "@@";
-	    if(is_array($val)){
-		$cnt = count($val);
-		$ret_raw = '';
-		for ($i=0; $i<$cnt; $i++){
-		    $ret_raw .= $val[$i];
-		    if($i < $cnt - 1) $ret_raw .= ', ';
-		}
-		$replacers['raw_vals'][] = $ret_raw;
-	    } else {
-		$replacers['raw_vals'][] = $val;
-	    }
+	// loop through the instructions
+	foreach ($instr as $instruction){
+	    // execute the callback against the renderer
+	    if ($instruction[0] == 'header' && !$title) $title = $instruction[1][0];
+	    call_user_func_array(array(&$renderer, $instruction[0]), $instruction[1]);
 	}
-	$raw = str_replace($replacers['raw_keys'], $replacers['raw_vals'], $rawFile);
-	$instr = p_get_instructions($raw);
 
-	// Find first header
-	foreach ($instr as $i) {
-	    if ($i[0] == 'header') {
-		// Header found. Do replacement if necessary.
-		preg_match_all("/@@(.+?)@@/", $i[1][0], $matches);
-		$title = $i[1][0];
-		foreach ($matches[1] as $m) {
-		    $title = str_replace("@@".$m."@@", $data['data'][$m], $title);
-		}
-		break;
-	    }
-	}
 	parent::_saveData($data, $id, $title);
     }
 }
