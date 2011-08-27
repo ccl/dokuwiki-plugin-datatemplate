@@ -58,26 +58,20 @@ class datatemplate_cache {
 
         // Ask dokuwiki for cache file name
         $cachefile = getCacheName($sql, '.datatemplate');
-        if(DEBUG) dbg("Cache file: " . $cachefile);
         if(file_exists($cachefile))
             $cachedate = filemtime($cachefile);
         else
             $cachedate = 0;
 
-        if(DEBUG) dbg("Cache date: " . $cachedate);
-
         $latest = 0;
         if($cachedate) {
             // Check for newest page in SQL result
-            if(DEBUG) dbg("Checking " . count($pageids) . " entries for updates.");
             foreach($pageids as $pageid) {
                 $modified = filemtime(wikiFN($pageid[0]));
                 $latest = ($modified > $latest) ? $modified : $latest;
             }
-            if(DEBUG) dbg("Latest: " . $latest);
         }
         if(!$cachedate || $latest > (int) $cachedate  || isset($_REQUEST['purge'])) {
-            if(DEBUG) dbg("Rebuilding cache.");
             $res = $sqlite->query($sql);
             $rows = sqlite_fetch_all($res, SQLITE_NUM);
             file_put_contents($cachefile, serialize($rows), LOCK_EX);
@@ -108,19 +102,11 @@ class datatemplate_cache {
             foreach($cache as $num=>$row) {
                 $cacheitems[trim($row[$idx])] = $num;
             }
-            if(DEBUG) {
-                dbg("Expected pages in cache:\n" . print_r($dataitems, True));
-                dbg("Actual pages in cache:\n" . print_r($cacheitems, True));
-            }
             // Now calculate the difference and update cache if necessary.
             $diff = array_diff_key($cacheitems, $dataitems);
-            if(DEBUG) dbg("Cache count difference: " . count($diff));
             if(count($diff) > 0) {
                 foreach($diff as $key => $num) {
-                    if(DEBUG) dbg("Removing from cache: $key (idx=$num)");
-                    if(DEBUG) dbg("Before:\n" . print_r($cache, True));
                     unset($cache[$num]);
-                    if(DEBUG) dbg("After:\n" . print_r($cache, True));
                 }
                 file_put_contents($cachefile, serialize($cache), LOCK_EX);
             }
