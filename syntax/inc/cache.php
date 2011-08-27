@@ -19,7 +19,6 @@ class datatemplate_cache {
         global $ID;
         foreach(array_keys($renderer->persistent) as $key) {
             if(substr($key, 0, 12) == 'datatemplate') {
-                if(DEBUG) dbg('Removing metadata: ' . $key);
                 unset($renderer->meta[$key]);
                 unset($renderer->persistent[$key]);
             }
