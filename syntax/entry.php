@@ -64,6 +64,27 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
         }
     }
 
+    /* Get template file name and check existance and access rights.
+     * 
+     * @returns  0 if the file does not exist
+     *          -1 if no permission to read the file
+     *          the file name otherwise
+     */
+    function _getFile($template) {
+	global $ID;
+	$wikipage = preg_split('/\#/u', $template, 2);
+
+	resolve_pageid(getNS($ID), $wikipage[0], $exists);
+
+	$file = wikiFN($wikipage[0]);
+
+	if (!@file_exists($file)) return 0;
+
+	if (auth_quickaclcheck($wikipage[0]) < 1) return -1;
+
+	return $file;
+    }
+
 
     /**
      * Generate wiki output from instructions
@@ -71,30 +92,23 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     function _showData($data, &$R) {
 	global $ID;
 	$R->info['cache'] = false;
-	$instr = $this->_getInstructions($data);
+
 	if(!array_key_exists('template', $data)) {
 	    // If keyword "template" not present, we can leave
 	    // the rendering to the parent class.
 	    parent::_showData($data, $R);
 	    return;
 	}
-	// check for permission
-	if (auth_quickaclcheck($wikipage[0]) < 1) {
-	    // False means no permissions
-	    $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
-	    return true;
-	}
-
-	$wikipage = preg_split('/\#/u', $data['template'], 2);
-	resolve_pageid(getNS($ID), $wikipage[0], $exists);          // resolve shortcuts
-
-	// Check if page exists at all.
-	$file = wikiFN($wikipage[0]);
-	if (!@file_exists($file)) {
+	$instr = $this->_getInstructions($data);
+	// Treat possible errors first
+	if($instr == 0) {
 	    $R->doc .= '<div class="datatemplateentry">';
 	    $R->doc .= "Template {$wikipage[0]} not found. ";
 	    $R->internalLink($wikipage[0], '[Click here to create it]');
 	    $R->doc .= '</div>';
+	    return true;
+	} elseif ($instr == -1) {
+	    $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
 	    return true;
 	}
 
@@ -119,32 +133,16 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
 
     /**
-     * Read and process template file and return wiki instructions.
+     * Read and process template file and return wiki instructions. Passes through the return
+     * value of _getFile if the file does not exist or cannot be accessed. If no template was specified,
+     * return empty array.
      */
     function _getInstructions($data){
 	global $ID;
-	if(!array_key_exists('template', $data)) {
-	    // If keyword "template" not present, we can leave
-	    // the rendering to the parent class.
-	    return null;
-	}
-
-	// The following code is taken more or less from the templater plugin.
-	// We are not using the plugin directly, because we want to use the
-	// data plugin's treatment of URLs. Hence, we are going to do the
-	// substitutions after the parsing
-	$wikipage = preg_split('/\#/u', $data['template'], 2);
-
-	resolve_pageid(getNS($ID), $wikipage[0], $exists);          // resolve shortcuts
-
-	// Now open the template, parse it and do the substitutions.
-	// FIXME: This does not take circular dependencies into account!
-	$file = wikiFN($wikipage[0]);
-	if (!@file_exists($file)) {
-	    return null;
-	}
 
 	// Get the raw file, and parse it into its instructions. This could be cached... maybe.
+	$file = $this->_getFile($data['template']);
+	if(!is_string($file)) return $file;
 	$rawFile = io_readfile($file);
 
 	foreach($data['data'] as $key => $val){
@@ -255,12 +253,17 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * correct.
      */
     function _saveData($data,$id,&$renderer){
-	$instr = $this->_getInstructions($data);
-
 	if(!array_key_exists('template', $data)) {
 	    parent::_saveData($data, $id, $renderer->meta['title']);
 	    return;
 	}
+
+	$file = $this->_getFile($data['template']);
+	$instr = $this->_getInstructions($data);
+	// If for some reason there are no instructions, don't do anything
+	// (Maybe for cache handling one should hand the template file name to the
+	// metadata, even though the file does not exist)
+	if(!is_string($file)) parent::_saveData($data, $id, $renderer->meta['title']);
 
 	// Remove document_start and document_end from instructions
 	array_shift($instr);
