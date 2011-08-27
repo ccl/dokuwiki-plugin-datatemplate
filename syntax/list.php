@@ -8,9 +8,6 @@
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
 
-// Turn on/off debugging output
-define('DEBUG', true);
-
 // Check for presence of data plugin
 $dataPluginFile = DOKU_PLUGIN.'data/syntax/table.php';
 if(file_exists($dataPluginFile)){
@@ -107,8 +104,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         return $sql;
     }
 
-
-
     /**
      * Create output
      */
@@ -120,12 +115,10 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         if($format == 'metadata') {
 	    // Remove metadata from previous plugin versions
-	    if(DEBUG) dbg("METADATA");
             $this->dtc->removeMeta($R);
         }
 
         if($format == 'xhtml') {
-            if(DEBUG) dbg("XHTML");
             $R->info['cache'] = false;
             $this->dtc->checkAndBuildCache($data, $sql, $this);
 
@@ -137,7 +130,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             }
 
             $datarows = $this->dtc->getData($sql);
-            //dbg("Datarows: " . count($datarows) . "\n" . "Rows: " . count($rows));
             $datarows = $this->_match_filters($data, $datarows);
 
             if(count($datarows) < $_REQUEST['dataofs']) $_REQUEST['dataofs'] = 0;
@@ -186,7 +178,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         // check for permission
         if (auth_quickaclcheck($wikipage) < 1) {
-            // False means no permissions
             $R->doc .= '<div class="datatemplatelist"> No permissions to view the template </div>';
             return true;
         }
@@ -256,11 +247,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         }
 
         // Replace unused placeholders by empty string
-        if(DEBUG) {
-	    $matches = array();
-	    preg_match('/@@.*?@@/', $text, $matches);
-	    dbg("Unused placeholders:\n" . print_r($matches, True));
-	}
         $text = preg_replace('/@@.*?@@/', '', $text);
 
 	$R->doc .= $text;
