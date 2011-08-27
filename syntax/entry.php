@@ -65,7 +65,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     }
 
     /* Get template file name and check existance and access rights.
-     * 
+     *
      * @returns  0 if the file does not exist
      *          -1 if no permission to read the file
      *          the file name otherwise
@@ -91,7 +91,6 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      */
     function _showData($data, &$R) {
 	global $ID;
-	$R->info['cache'] = false;
 
 	if(!array_key_exists('template', $data)) {
 	    // If keyword "template" not present, we can leave
@@ -264,6 +263,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 	// (Maybe for cache handling one should hand the template file name to the
 	// metadata, even though the file does not exist)
 	if(!is_string($file)) parent::_saveData($data, $id, $renderer->meta['title']);
+	$renderer->meta['relation']['haspart'][$file] = array('owner'=>$this->getPluginName());
 
 	// Remove document_start and document_end from instructions
 	array_shift($instr);
