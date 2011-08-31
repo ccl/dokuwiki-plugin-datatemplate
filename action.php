@@ -22,35 +22,35 @@ class action_plugin_datatemplate extends DokuWiki_Action_Plugin {
      * return some info
      */
     function getInfo(){
-      return array(
-        'author' => 'Christoph Clausen',
-        'email'  => 'christoph.clausen@gmail.com',
-        'date'   => '2011-08-27',
-        'name'   => 'Datatemplate Plugin',
-        'desc'   => 'A template extension for the data plugin',
-        'url'    => 'http://www.dokuwiki.org/plugin:datatemplate',
-      );
+        return array(
+            'author' => 'Christoph Clausen',
+            'email'  => 'christoph.clausen@gmail.com',
+            'date'   => '2011-08-27',
+            'name'   => 'Datatemplate Plugin',
+            'desc'   => 'A template extension for the data plugin',
+            'url'    => 'http://www.dokuwiki.org/plugin:datatemplate',
+            );
     }
 
     /**
      * plugin should use this method to register its handlers with the dokuwiki's event controller
      */
     function register(&$controller) {
-      $controller->register_hook('PARSER_CACHE_USE','BEFORE', $this, '_cache_prepare');
+        $controller->register_hook('PARSER_CACHE_USE','BEFORE', $this, '_cache_prepare');
     }
 
     /**
      * prepare the cache object for default _useCache action
      */
     function _cache_prepare(&$event, $param) {
-      $cache =& $event->data;
+        $cache =& $event->data;
 
-      // we're only interested in wiki pages and supported render modes
-      if (!isset($cache->page)) return;
-      if (!isset($cache->mode) || $cache->mode != 'metadata') return;
+        // we're only interested in wiki pages and supported render modes
+        if (!isset($cache->page)) return;
+        if (!isset($cache->mode) || $cache->mode != 'metadata') return;
 
-      $files = $this->_get_dependencies($cache->page);
-      $cache->depends['files'] = array_merge($cache->depends['files'], $files);
+        $files = $this->_get_dependencies($cache->page);
+        $cache->depends['files'] = array_merge($cache->depends['files'], $files);
     }
 
     /**
@@ -58,14 +58,14 @@ class action_plugin_datatemplate extends DokuWiki_Action_Plugin {
      * a single template file.
      */
     function _get_dependencies($id) {
-      $hasPart = p_get_metadata($id, 'relation haspart');
-      if(empty($hasPart) || !is_array($hasPart)) return array();
+        $hasPart = p_get_metadata($id, 'relation haspart');
+        if(empty($hasPart) || !is_array($hasPart)) return array();
 
-      $files = array();
-      foreach($hasPart as $file => $data) {
-	if(empty($data['owner']) || $data['owner'] != $this->getPluginName()) continue;
-	$files[] = $file;
-      }
-      return $files;
+        $files = array();
+        foreach($hasPart as $file => $data) {
+            if(empty($data['owner']) || $data['owner'] != $this->getPluginName()) continue;
+            $files[] = $file;
+        }
+        return $files;
     }
 }
