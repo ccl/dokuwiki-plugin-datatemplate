@@ -20,27 +20,27 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * Connect pattern to lexer
      */
     function connectTo($mode) {
-	$this->Lexer->addSpecialPattern('----+ *datatemplateentry(?: [ a-zA-Z0-9_]*)?-+\n.*?\n----+',
-					$mode,'plugin_datatemplate_entry');
+        $this->Lexer->addSpecialPattern('----+ *datatemplateentry(?: [ a-zA-Z0-9_]*)?-+\n.*?\n----+',
+                                        $mode,'plugin_datatemplate_entry');
     }
 
     /**
      * Handle the match - parse the data
      */
     function handle($match, $state, $pos, &$handler){
-	// The parser of the parent class should have nicely parsed all
-	// parameters. We want to extract the template parameter and treat
-	// it separately.
+        // The parser of the parent class should have nicely parsed all
+        // parameters. We want to extract the template parameter and treat
+        // it separately.
 
-	// strip datatemplateentry to get right classes
+        // strip datatemplateentry to get right classes
         $match = preg_replace('/datatemplateentry/', '', $match, 1);
-	$data = parent::handle($match, $state, $pos, $handler);
-	if(array_key_exists('template',  $data['cols'])) {
-	    unset($data['cols']['template']);
-	    $data['template'] = $data['data']['template'];
-	    unset($data['data']['template']);
-	}
-	return $data;
+        $data = parent::handle($match, $state, $pos, $handler);
+        if(array_key_exists('template',  $data['cols'])) {
+            unset($data['cols']['template']);
+            $data['template'] = $data['data']['template'];
+            unset($data['data']['template']);
+        }
+        return $data;
     }
 
 
@@ -71,18 +71,18 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      *          the file name otherwise
      */
     function _getFile($template) {
-	global $ID;
-	$wikipage = preg_split('/\#/u', $template, 2);
+        global $ID;
+        $wikipage = preg_split('/\#/u', $template, 2);
 
-	resolve_pageid(getNS($ID), $wikipage[0], $exists);
+        resolve_pageid(getNS($ID), $wikipage[0], $exists);
 
-	$file = wikiFN($wikipage[0]);
+        $file = wikiFN($wikipage[0]);
 
-	if (!@file_exists($file)) return 0;
+        if (!@file_exists($file)) return 0;
 
-	if (auth_quickaclcheck($wikipage[0]) < 1) return -1;
+        if (auth_quickaclcheck($wikipage[0]) < 1) return -1;
 
-	return $file;
+        return $file;
     }
 
 
@@ -90,44 +90,44 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * Generate wiki output from instructions
      */
     function _showData($data, &$R) {
-	global $ID;
+        global $ID;
 
-	if(!array_key_exists('template', $data)) {
-	    // If keyword "template" not present, we can leave
-	    // the rendering to the parent class.
-	    parent::_showData($data, $R);
-	    return;
-	}
-	$instr = $this->_getInstructions($data);
-	// Treat possible errors first
-	if($instr == 0) {
-	    $R->doc .= '<div class="datatemplateentry">';
-	    $R->doc .= "Template {$wikipage[0]} not found. ";
-	    $R->internalLink($wikipage[0], '[Click here to create it]');
-	    $R->doc .= '</div>';
-	    return true;
-	} elseif ($instr == -1) {
-	    $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
-	    return true;
-	}
+        if(!array_key_exists('template', $data)) {
+            // If keyword "template" not present, we can leave
+            // the rendering to the parent class.
+            parent::_showData($data, $R);
+            return;
+        }
+        $instr = $this->_getInstructions($data);
+        // Treat possible errors first
+        if($instr == 0) {
+            $R->doc .= '<div class="datatemplateentry">';
+            $R->doc .= "Template {$wikipage[0]} not found. ";
+            $R->internalLink($wikipage[0], '[Click here to create it]');
+            $R->doc .= '</div>';
+            return true;
+        } elseif ($instr == -1) {
+            $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
+            return true;
+        }
 
-	// embed the included page
-	$R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
+        // embed the included page
+        $R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
 
-	// render the instructructions on the fly
-	$text = p_render('xhtml', $instr, $info);
+        // render the instructructions on the fly
+        $text = p_render('xhtml', $instr, $info);
 
-	// remove toc, section edit buttons and category tags
-	$patterns = array('!<div class="toc">.*?(</div>\n</div>)!s',
-			  '#<!-- EDIT.*? \[(\d*-\d*)\] -->#e',
-			  '!<div class="category">.*?</div>!s');
-	$replace  = array('','','');
-	$text = preg_replace($patterns,$replace,$text);
+        // remove toc, section edit buttons and category tags
+        $patterns = array('!<div class="toc">.*?(</div>\n</div>)!s',
+                          '#<!-- EDIT.*? \[(\d*-\d*)\] -->#e',
+                          '!<div class="category">.*?</div>!s');
+        $replace  = array('','','');
+        $text = preg_replace($patterns,$replace,$text);
 
-	$R->doc .= $text;
-	$R->doc .= '</div>';
+        $R->doc .= $text;
+        $R->doc .= '</div>';
 
-	return true;
+        return true;
     }
 
 
@@ -137,52 +137,52 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * return empty array.
      */
     function _getInstructions($data){
-	global $ID;
+        global $ID;
 
-	// Get the raw file, and parse it into its instructions. This could be cached... maybe.
-	$file = $this->_getFile($data['template']);
-	if(!is_string($file)) return $file;
-	$rawFile = io_readfile($file);
+        // Get the raw file, and parse it into its instructions. This could be cached... maybe.
+        $file = $this->_getFile($data['template']);
+        if(!is_string($file)) return $file;
+        $rawFile = io_readfile($file);
 
-	foreach($data['data'] as $key => $val){
-	    if($val == '' || !count($val)) continue;
-	    $type = $data['cols'][$key]['type'];
-	    if (is_array($type)) $type = $type['type'];
-	    switch ($type) {
-	    case 'pageid':
-		$type = 'title';
-	    case 'wiki':
-		$val = $ID . '|' . $val;
-		break;
-	    }
-	    $replacers['keys'][] = "@@" . $key . "@@";
-	    $replacers['raw_keys'][] = "@@!" . $key . "@@";
-	    if(is_array($val)){
-		$cnt = count($val);
-		$ret = '';
-		$ret_raw = '';
-		for ($i=0; $i<$cnt; $i++){
-		    $ret .= $this->_formatData($data['cols'][$key], $val[$i]);
-		    $ret_raw .= $val[$i];
-		    if($i < $cnt - 1) {
-			$ret .= ', ';
-			$ret_raw .= ', ';
-		    }
-		}
-		$replacers['vals'][] = $ret;
-		$replacers['raw_vals'][] = $ret_raw;
-	    } else {
-		$replacers['vals'][] = $this->_formatData($data['cols'][$key], $val);
-		$replacers['raw_vals'][] = $val;
-	    }
-	}
-	// First do raw replacements
-	$raw = str_replace($replacers['raw_keys'], $replacers['raw_vals'], $rawFile);
-	$raw = str_replace($replacers['keys'], $replacers['vals'], $raw);
-	$raw = preg_replace('/@@.*?@@/', '', $raw);
-	$instr = p_get_instructions($raw);
+        foreach($data['data'] as $key => $val){
+            if($val == '' || !count($val)) continue;
+            $type = $data['cols'][$key]['type'];
+            if (is_array($type)) $type = $type['type'];
+            switch ($type) {
+                case 'pageid':
+                    $type = 'title';
+                case 'wiki':
+                    $val = $ID . '|' . $val;
+                    break;
+            }
+            $replacers['keys'][] = "@@" . $key . "@@";
+            $replacers['raw_keys'][] = "@@!" . $key . "@@";
+            if(is_array($val)){
+                $cnt = count($val);
+                $ret = '';
+                $ret_raw = '';
+                for ($i=0; $i<$cnt; $i++){
+                    $ret .= $this->_formatData($data['cols'][$key], $val[$i]);
+                    $ret_raw .= $val[$i];
+                    if($i < $cnt - 1) {
+                        $ret .= ', ';
+                        $ret_raw .= ', ';
+                    }
+                }
+                $replacers['vals'][] = $ret;
+                $replacers['raw_vals'][] = $ret_raw;
+            } else {
+                $replacers['vals'][] = $this->_formatData($data['cols'][$key], $val);
+                $replacers['raw_vals'][] = $val;
+            }
+        }
+        // First do raw replacements
+        $raw = str_replace($replacers['raw_keys'], $replacers['raw_vals'], $rawFile);
+        $raw = str_replace($replacers['keys'], $replacers['vals'], $raw);
+        $raw = preg_replace('/@@.*?@@/', '', $raw);
+        $instr = p_get_instructions($raw);
 
-	return $instr;
+        return $instr;
     }
 
     /**
@@ -203,31 +203,31 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             if (is_array($type)) $type = $type['type'];
             switch($type){
                 case 'page':
-		    $outs[] = '[[' . $val. ']]';
+                    $outs[] = '[[' . $val. ']]';
                     break;
                 case 'title':
                     list($id,$title) = explode('|',$val,2);
-		    $outs[] = '[[' . $id . '|' . $title . ']]';
+                    $outs[] = '[[' . $id . '|' . $title . ']]';
                     break;
                 case 'nspage':
                     $val = ':'.$column['key'].":$val";
-		    $outs[] = '[[' . $val . ']]';
+                    $outs[] = '[[' . $val . ']]';
                     break;
                 case 'mail':
                     list($id,$title) = explode(' ',$val,2);
-		    $outs[] = '[[' . $id . '|' . $title . ']]';
+                    $outs[] = '[[' . $id . '|' . $title . ']]';
                     break;
                 case 'url':
                     $outs[] = '[[' . $val . ']]';
-		    break;
+                    break;
                 case 'tag':
                     #FIXME not handled by datatemplate so far
-                    $outs[] = '<a href="'.wl(str_replace('/',':',cleanID($column['key'])),array('dataflt'=>$column['key'].':'.$val )).
-                              '" title="'.sprintf($this->getLang('tagfilter'),hsc($val)).
-                              '" class="wikilink1">'.hsc($val).'</a>';
+                        $outs[] = '<a href="'.wl(str_replace('/',':',cleanID($column['key'])),array('dataflt'=>$column['key'].':'.$val )).
+                        '" title="'.sprintf($this->getLang('tagfilter'),hsc($val)).
+                        '" class="wikilink1">'.hsc($val).'</a>';
                     break;
                 case 'wiki':
-		    $outs[] = $data;
+                    $outs[] = $data;
                     break;
                 default:
                     //$val = $this->_addPrePostFixes($column['type'], $val);
@@ -235,8 +235,8 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                         $sz = (int) substr($type,3);
                         if(!$sz) $sz = 40;
                         $title = $column['key'].': '.basename(str_replace(':','/',$val));
-			$outs[] = '{{' . $val . '}}';
-		    }else{
+                        $outs[] = '{{' . $val . '}}';
+                    }else{
                         $outs[] = $val;
                     }
             }
@@ -252,29 +252,29 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * correct.
      */
     function _saveData($data,$id,&$renderer){
-	if(!array_key_exists('template', $data)) {
-	    parent::_saveData($data, $id, $renderer->meta['title']);
-	    return;
-	}
+        if(!array_key_exists('template', $data)) {
+            parent::_saveData($data, $id, $renderer->meta['title']);
+            return;
+        }
 
-	$file = $this->_getFile($data['template']);
-	$instr = $this->_getInstructions($data);
-	// If for some reason there are no instructions, don't do anything
-	// (Maybe for cache handling one should hand the template file name to the
-	// metadata, even though the file does not exist)
-	if(!is_string($file)) parent::_saveData($data, $id, $renderer->meta['title']);
-	$renderer->meta['relation']['haspart'][$file] = array('owner'=>$this->getPluginName());
+        $file = $this->_getFile($data['template']);
+        $instr = $this->_getInstructions($data);
+        // If for some reason there are no instructions, don't do anything
+        // (Maybe for cache handling one should hand the template file name to the
+        // metadata, even though the file does not exist)
+        if(!is_string($file)) parent::_saveData($data, $id, $renderer->meta['title']);
+        $renderer->meta['relation']['haspart'][$file] = array('owner'=>$this->getPluginName());
 
-	// Remove document_start and document_end from instructions
-	array_shift($instr);
-	array_pop($instr);
+        // Remove document_start and document_end from instructions
+        array_shift($instr);
+        array_pop($instr);
 
-	// loop through the instructions
-	for($i = 0; $i < count($instr); $i++) {
-	    call_user_func_array(array($renderer, $instr[$i][0]), $instr[$i][1]);
-	}
+        // loop through the instructions
+        for($i = 0; $i < count($instr); $i++) {
+            call_user_func_array(array($renderer, $instr[$i][0]), $instr[$i][1]);
+        }
 
-	parent::_saveData($data, $id, $renderer->meta['title']);
+        parent::_saveData($data, $id, $renderer->meta['title']);
     }
 }
 /* Local Variables: */
