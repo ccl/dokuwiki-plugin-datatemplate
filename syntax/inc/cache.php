@@ -72,7 +72,7 @@ class datatemplate_cache {
         }
         if(!$cachedate || $latest > (int) $cachedate  || isset($_REQUEST['purge'])) {
             $res = $sqlite->query($sql);
-            $rows = sqlite_fetch_all($res, SQLITE_NUM);
+            $rows = $res->fetchAll(SQLITE_NUM);
             file_put_contents($cachefile, serialize($rows), LOCK_EX);
         } else {
             // We arrive here when the cache seems up-to-date. However,
