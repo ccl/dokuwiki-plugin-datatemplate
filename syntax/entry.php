@@ -64,9 +64,12 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
         }
     }
 
-    /* Get template file name and check existance and access rights.
+    /**
+     * Get template file name and check existance and access rights.
      *
-     * @returns  0 if the file does not exist
+     * @param string $template value of 'template' key in entry
+     * @return int|string
+     *           0 if the file does not exist
      *          -1 if no permission to read the file
      *          the file name otherwise
      */
@@ -85,25 +88,27 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
         return $file;
     }
 
-
     /**
      * Generate wiki output from instructions
+     *
+     * @param $data array as returned by handle()
+     * @param $R Doku_Renderer_xhtml
+     * @return bool|void
      */
     function _showData($data, &$R) {
-        global $ID;
 
         if(!array_key_exists('template', $data)) {
             // If keyword "template" not present, we can leave
             // the rendering to the parent class.
             parent::_showData($data, $R);
-            return;
+            return true;
         }
         $instr = $this->_getInstructions($data);
         // Treat possible errors first
         if($instr == 0) {
             $R->doc .= '<div class="datatemplateentry">';
-            $R->doc .= "Template {$wikipage[0]} not found. ";
-            $R->internalLink($wikipage[0], '[Click here to create it]');
+            $R->doc .= "Template {$data['template']} not found. ";
+            $R->internalLink($data['template'], '[Click here to create it]');
             $R->doc .= '</div>';
             return true;
         } elseif ($instr == -1) {
@@ -132,30 +137,31 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
 
     /**
-     * Read and process template file and return wiki instructions. Passes through the return
-     * value of _getFile if the file does not exist or cannot be accessed. If no template was specified,
-     * return empty array.
+     * Read and process template file and return wiki instructions.
+     * Passes through the return value of _getFile if the file does not exist or cannot be accessed.
+     * If no template was specified, return empty array.
+     *
+     * @param array $data return of handle()
+     * @return bool|int|string
+     *           0 if the template file does not exist
+     *          -1 if no permission to read the template file
+     *           otherwise the template page as list of instructions with replacements performed
      */
     function _getInstructions($data){
-        global $ID;
-
         // Get the raw file, and parse it into its instructions. This could be cached... maybe.
         $file = $this->_getFile($data['template']);
         if(!is_string($file)) return $file;
         $rawFile = io_readfile($file);
 
+        $replacers['raw_keys'] = array();
+        $replacers['raw_vals'] = array();
+        $replacers['keys'] = array();
+        $replacers['vals'] = array();
+
         foreach($data['data'] as $key => $val){
             if($val == '' || !count($val)) continue;
-            $type = $data['cols'][$key]['type'];
-            if (is_array($type)) $type = $type['type'];
-            switch ($type) {
-                case 'pageid':
-                    $type = 'title';
-                case 'wiki':
-                    $val = $ID . '|' . $val;
-                    break;
-            }
-            $replacers['keys'][] = "@@" . $key . "@@";
+
+            $replacers['keys'][]     = "@@" . $key . "@@";
             $replacers['raw_keys'][] = "@@!" . $key . "@@";
             if(is_array($val)){
                 $cnt = count($val);
@@ -191,9 +197,12 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      *   We want to let the dokuwiki renderer generate the required output, such
      * that also metadata is handled correctly. Hence, we will try to translate
      * each column type to the corresponding dokuwiki syntax.
+     *
+     * @param array $column
+     * @param string $value value of column.
+     * @return string DokuWiki syntax interpretation of value
      */
     function _formatData($column, $value){
-        global $conf;
         $vals = explode("\n",$value);
         $outs = array();
         foreach($vals as $val){
@@ -205,6 +214,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                 case 'page':
                     $outs[] = '[[' . $val. ']]';
                     break;
+                case 'pageid':
                 case 'title':
                     list($id,$title) = explode('|',$val,2);
                     $outs[] = '[[' . $id . '|' . $title . ']]';
@@ -227,7 +237,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                         '" class="wikilink1">'.hsc($val).'</a>';
                     break;
                 case 'wiki':
-                    $outs[] = $data;
+                    $outs[] = $val;
                     break;
                 default:
                     //$val = $this->_addPrePostFixes($column['type'], $val);

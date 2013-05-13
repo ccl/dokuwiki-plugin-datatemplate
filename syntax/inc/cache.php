@@ -13,7 +13,7 @@ class datatemplate_cache {
     /**
      * Remove any metadata that might have been stored by previous versions
      * of the plugin.
-     * @param $renderer an instance of the dokuwiki renderer.
+     * @param Doku_Renderer_metadata $renderer an instance of the dokuwiki renderer.
      */
     public function removeMeta(&$renderer) {
         global $ID;
@@ -32,11 +32,11 @@ class datatemplate_cache {
      *
      * @param array $data from the handle function
      * @param string $sql stripped SQL for hash generation
-     * @param reference $dtlist the calling datatemplate list instance
+     * @param syntax_plugin_datatemplate_list $dtlist reference, the calling datatemplate list instance
      */
     public function checkAndBuildCache($data, $sql, &$dtlist) {
-        global $ID;
         // We know that the datatemplate list has a datahelper.
+        /** @var $sqlite helper_plugin_sqlite */
         $sqlite = $dtlist->dthlp->_getDB();
 
         // Build minimalistic data array for checking the cache
@@ -53,7 +53,7 @@ class datatemplate_cache {
         $dtcc['filter'] = $data['filter'];
         $sqlcc = $dtlist->_buildSQL($dtcc);
         $res = $sqlite->query($sqlcc);
-        $pageids = sqlite_fetch_all($res, SQLITE_NUM);
+        $pageids = $sqlite->res2arr($res, $assoc = false);
 
         // Ask dokuwiki for cache file name
         $cachefile = getCacheName($sql, '.datatemplate');
@@ -72,7 +72,7 @@ class datatemplate_cache {
         }
         if(!$cachedate || $latest > (int) $cachedate  || isset($_REQUEST['purge'])) {
             $res = $sqlite->query($sql);
-            $rows = sqlite_fetch_all($res, SQLITE_NUM);
+            $rows = $sqlite->res2arr($res, $assoc = false);
             file_put_contents($cachefile, serialize($rows), LOCK_EX);
         } else {
             // We arrive here when the cache seems up-to-date. However,
