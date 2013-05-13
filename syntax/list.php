@@ -108,7 +108,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * Create output
      */
     function render($format, &$R, $data) {
-        global $ID;
+
         if(is_null($data)) return false;
 
         $sql = $this->_buildSQL($data);
@@ -147,7 +147,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             }
 
             if ($cnt === 0) {
-                $this->nullList($data, $clist, $R);
+                $this->nullList($data, $clist = array(), $R);
                 return true;
             }
 
@@ -169,7 +169,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * @param string $wikipage the id of the wikipage containing the template
      * @param array $data output of the handle function
      * @param array $rows the result of the sql query
-     * @param reference $R the dokuwiki renderer
+     * @param Doku_Renderer_xhtml $R the dokuwiki renderer
      * @return boolean Whether the page has been correctly (not: succesfully) processed.
      */
     function _renderTemplate($wikipage, $data, $rows, &$R) {
@@ -264,9 +264,9 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      */
     function _renderPagination($data, $numrows) {
         global $ID;
+        $text = '';
         // Add pagination controls
         if($data['limit']){
-            $text = '';
             $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
             //$params['datasrt'] = $_REQUEST['datasrt'];
             $offset = (int) $_REQUEST['dataofs'];
@@ -305,6 +305,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             }
             return '<div class="prevnext">' . $text . '</div>';
         }
+        return $text;
     }
 
     /**
