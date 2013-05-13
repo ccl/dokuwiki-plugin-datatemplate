@@ -266,6 +266,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         global $ID;
         // Add pagination controls
         if($data['limit']){
+            $text = '';
             $params = $this->dthlp->_a2ua('dataflt',$_REQUEST['dataflt']);
             //$params['datasrt'] = $_REQUEST['datasrt'];
             $offset = (int) $_REQUEST['dataofs'];
