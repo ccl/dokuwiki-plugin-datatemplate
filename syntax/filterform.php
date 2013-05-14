@@ -78,7 +78,7 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
             if (isset($_POST['filterform']) && checkSecurityToken()) {
                 $new_flt = '';
                 if(!empty($_POST['contains'])) {
-                    $new_flt = $_POST['field'] . '~*' . $_POST['contains'] . '*';
+                    $new_flt = $_POST['field'] . '*~' . $_POST['contains'];
                     if(!isset($_REQUEST['dataflt'])){
                         $flt = array();
                     } elseif (!is_array($_REQUEST['dataflt'])){
@@ -108,7 +108,7 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
         if(count($_REQUEST['dataflt']) > 0) {
             $form->addElement('<div class="group">Previous Filters:</div>');
             foreach($_REQUEST['dataflt'] as $num=>$flt) {
-                list($key, $value) = explode('~', $flt);
+                list($key, $value) = explode('*~', $flt);
                 $value = trim($value, '*');
                 $txt = '<i>' . $key . ':</i> ' . $value;
                 $form->addElement(form_checkboxField(array('_text' => $txt, 'name' => 'dataflt[]','value' => $flt,
