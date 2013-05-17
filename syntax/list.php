@@ -247,6 +247,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             $text = str_replace($replacers['keys_id'][$num], $vals, $text);
         }
 
+        /** @deprecated 18 May 2013 column key names are used in stead of (localized) headers */
+        if(strpos($text, '@@Page@@') !== false) {
+            msg("datatemplate plugin: Use of @@Page@@ in '{$wikipage}' is deprecated. Replace it by @@%title%@@ please.", -1);
+        }
+
         // Replace unused placeholders by empty string
         $text = preg_replace('/@@.*?@@/', '', $text);
 
