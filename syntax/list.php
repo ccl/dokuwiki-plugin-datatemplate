@@ -192,9 +192,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             $R->doc .= '</div>';
             return true;
         }
+        //collect column key names
+        $clist = array_keys($data['cols']);
 
         // Construct replacement keys
-        foreach ($data['headers'] as $num => $head) {
+        foreach ($clist as $num => $head) {
             $replacers['keys'][] = "@@" . $head . "@@";
             $replacers['raw_keys'][] = "@@!" . $head . "@@";
         }
@@ -207,7 +209,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         // We only want to call the parser once, so first do all the raw replacements and concatenate
         // the strings.
-        $clist = array_keys($data['cols']);
         $raw = "";
         $i = 0;
         $replacers['vals_id'] = array();
