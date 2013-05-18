@@ -53,6 +53,9 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             $data['template'] = $data['data']['template'];
             unset($data['data']['template']);
         }
+        if(array_key_exists('template', $data)) {
+            $data['instructions'] = $this->_getInstructions($data);
+        }
         return $data;
     }
 
@@ -116,15 +119,15 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             parent::_showData($data, $R);
             return true;
         }
-        $instr = $this->_getInstructions($data);
+
         // Treat possible errors first
-        if($instr == 0) {
+        if($data['instructions'] == 0) {
             $R->doc .= '<div class="datatemplateentry">';
             $R->doc .= "Template {$data['template']} not found. ";
             $R->internalLink($data['template'], '[Click here to create it]');
             $R->doc .= '</div>';
             return true;
-        } elseif ($instr == -1) {
+        } elseif ($data['instructions'] == -1) {
             $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
             return true;
         }
@@ -133,7 +136,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
         $R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
 
         // render the instructructions on the fly
-        $text = p_render('xhtml', $instr, $info);
+        $text = p_render('xhtml', $data['instructions'], $info);
 
         // remove toc, section edit buttons and category tags
         $patterns = array('!<div class="toc">.*?(</div>\n</div>)!s',
@@ -287,7 +290,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
         }
 
         $file = $this->_getFile($data['template']);
-        $instr = $this->_getInstructions($data);
+        $instr = $data['instructions'];
         // If for some reason there are no instructions, don't do anything
         // (Maybe for cache handling one should hand the template file name to the
         // metadata, even though the file does not exist)
