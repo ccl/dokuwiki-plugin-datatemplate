@@ -17,6 +17,19 @@ if(file_exists($dataEntryFile)){
 class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
     /**
+     * @var $dthlp helper_plugin_data will hold the data helper plugin
+     */
+    var $dthlp = null;
+
+    /**
+     * Constructor. Load helper plugin
+     */
+    function __construct(){
+        $this->dthlp =& plugin_load('helper', 'data');
+        if(!$this->dthlp) msg('Loading the data helper failed. Make sure the data plugin is installed.',-1);
+    }
+
+    /**
      * Connect pattern to lexer
      */
     function connectTo($mode) {
@@ -212,22 +225,27 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             if (is_array($type)) $type = $type['type'];
             switch($type){
                 case 'page':
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     $outs[] = '[[' . $val. ']]';
                     break;
                 case 'pageid':
                 case 'title':
                     list($id,$title) = explode('|',$val,2);
+                    $id = $this->dthlp->_addPrePostFixes($column['type'], $id);
                     $outs[] = '[[' . $id . '|' . $title . ']]';
                     break;
                 case 'nspage':
+                    // no prefix/postfix here
                     $val = ':'.$column['key'].":$val";
                     $outs[] = '[[' . $val . ']]';
                     break;
                 case 'mail':
                     list($id,$title) = explode(' ',$val,2);
+                    $id = $this->dthlp->_addPrePostFixes($column['type'], $id);
                     $outs[] = '[[' . $id . '|' . $title . ']]';
                     break;
                 case 'url':
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     $outs[] = '[[' . $val . ']]';
                     break;
                 case 'tag':
@@ -237,10 +255,11 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                         '" class="wikilink1">'.hsc($val).'</a>';
                     break;
                 case 'wiki':
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     $outs[] = $val;
                     break;
                 default:
-                    //$val = $this->_addPrePostFixes($column['type'], $val);
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     if(substr($type,0,3) == 'img'){
                         $sz = (int) substr($type,3);
                         if(!$sz) $sz = 40;
