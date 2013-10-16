@@ -25,7 +25,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * Constructor. Load helper plugin
      */
     function __construct(){
-        $this->dthlp =& plugin_load('helper', 'data');
+        $this->dthlp = plugin_load('helper', 'data');
         if(!$this->dthlp) msg('Loading the data helper failed. Make sure the data plugin is installed.',-1);
     }
 
@@ -40,7 +40,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Handle the match - parse the data
      */
-    function handle($match, $state, $pos, &$handler){
+    function handle($match, $state, $pos, Doku_Handler &$handler){
         // The parser of the parent class should have nicely parsed all
         // parameters. We want to extract the template parameter and treat
         // it separately.
@@ -63,16 +63,19 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Create output or save the data
      */
-    function render($format, &$renderer, $data) {
+    function render($format, Doku_Renderer &$renderer, $data) {
         global $ID;
         switch ($format){
             case 'xhtml':
+                /** @var $renderer Doku_Renderer_xhtml */
                 $this->_showData($data,$renderer);
                 return true;
             case 'metadata':
-                $this->_saveData($data,$ID,$renderer);
+                /** @var $renderer Doku_Renderer_metadata */
+                $this->_saveRendereredData($data,$ID,$renderer);
                 return true;
             case 'plugin_data_edit':
+                /** @var $renderer Doku_Renderer_plugin_data_edit */
                 $this->_editData($data, $renderer);
                 return true;
             default:
@@ -108,7 +111,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * Generate wiki output from instructions
      *
      * @param $data array as returned by handle()
-     * @param $R Doku_Renderer_xhtml
+     * @param &$R Doku_Renderer_xhtml
      * @return bool|void
      */
     function _showData($data, &$R) {
@@ -252,7 +255,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                     $outs[] = '[[' . $val . ']]';
                     break;
                 case 'tag':
-                    #FIXME not handled by datatemplate so far
+                    #todo not handled by datatemplate so far
                         $outs[] = '<a href="'.wl(str_replace('/',':',cleanID($column['key'])),array('dataflt'=>$column['key'].':'.$val )).
                         '" title="'.sprintf($this->getLang('tagfilter'),hsc($val)).
                         '" class="wikilink1">'.hsc($val).'</a>';
@@ -267,11 +270,11 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                         $sz = (int) substr($type,3);
                         if(!$sz) $sz = 40;
                         $title = $column['key'].': '.basename(str_replace(':','/',$val));
-                        $outs[] = '{{' . $val . '}}';
+                        $outs[] = '{{' . $val. ($sz ? '?'.$sz:'') .'|'.$title. '}}';
                     }else{
                         $outs[] = $val;
                     }
-            }
+            }    //todo add type 'timestamp' ... returns html..
         }
         return join(', ',$outs);
     }
@@ -283,7 +286,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * the parsed template, such that page title and table of contents are
      * correct.
      */
-    function _saveData($data,$id,&$renderer){
+    function _saveRendereredData($data,$id,&$renderer){
         if(!array_key_exists('template', $data)) {
             parent::_saveData($data, $id, $renderer->meta['title']);
             return;
