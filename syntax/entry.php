@@ -17,6 +17,19 @@ if(file_exists($dataEntryFile)){
 class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
 
     /**
+     * @var $dthlp helper_plugin_data will hold the data helper plugin
+     */
+    var $dthlp = null;
+
+    /**
+     * Constructor. Load helper plugin
+     */
+    function __construct(){
+        $this->dthlp = plugin_load('helper', 'data');
+        if(!$this->dthlp) msg('Loading the data helper failed. Make sure the data plugin is installed.',-1);
+    }
+
+    /**
      * Connect pattern to lexer
      */
     function connectTo($mode) {
@@ -27,7 +40,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Handle the match - parse the data
      */
-    function handle($match, $state, $pos, &$handler){
+    function handle($match, $state, $pos, Doku_Handler &$handler){
         // The parser of the parent class should have nicely parsed all
         // parameters. We want to extract the template parameter and treat
         // it separately.
@@ -40,6 +53,9 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             $data['template'] = $data['data']['template'];
             unset($data['data']['template']);
         }
+        if(array_key_exists('template', $data)) {
+            $data['instructions'] = $this->_getInstructions($data);
+        }
         return $data;
     }
 
@@ -47,16 +63,19 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Create output or save the data
      */
-    function render($format, &$renderer, $data) {
+    function render($format, Doku_Renderer &$renderer, $data) {
         global $ID;
         switch ($format){
             case 'xhtml':
+                /** @var $renderer Doku_Renderer_xhtml */
                 $this->_showData($data,$renderer);
                 return true;
             case 'metadata':
-                $this->_saveData($data,$ID,$renderer);
+                /** @var $renderer Doku_Renderer_metadata */
+                $this->_saveRendereredData($data,$ID,$renderer);
                 return true;
             case 'plugin_data_edit':
+                /** @var $renderer Doku_Renderer_plugin_data_edit */
                 $this->_editData($data, $renderer);
                 return true;
             default:
@@ -92,7 +111,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * Generate wiki output from instructions
      *
      * @param $data array as returned by handle()
-     * @param $R Doku_Renderer_xhtml
+     * @param &$R Doku_Renderer_xhtml
      * @return bool|void
      */
     function _showData($data, &$R) {
@@ -103,15 +122,15 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             parent::_showData($data, $R);
             return true;
         }
-        $instr = $this->_getInstructions($data);
+
         // Treat possible errors first
-        if($instr == 0) {
+        if($data['instructions'] == 0) {
             $R->doc .= '<div class="datatemplateentry">';
             $R->doc .= "Template {$data['template']} not found. ";
             $R->internalLink($data['template'], '[Click here to create it]');
             $R->doc .= '</div>';
             return true;
-        } elseif ($instr == -1) {
+        } elseif ($data['instructions'] == -1) {
             $R->doc .= '<div class="datatemplateentry"> No permissions to view the template </div>';
             return true;
         }
@@ -120,7 +139,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
         $R->doc .= '<div class="datatemplateentry ' . $data['classes'] . '">';
 
         // render the instructructions on the fly
-        $text = p_render('xhtml', $instr, $info);
+        $text = p_render('xhtml', $data['instructions'], $info);
 
         // remove toc, section edit buttons and category tags
         $patterns = array('!<div class="toc">.*?(</div>\n</div>)!s',
@@ -212,44 +231,50 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
             if (is_array($type)) $type = $type['type'];
             switch($type){
                 case 'page':
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     $outs[] = '[[' . $val. ']]';
                     break;
                 case 'pageid':
                 case 'title':
                     list($id,$title) = explode('|',$val,2);
+                    $id = $this->dthlp->_addPrePostFixes($column['type'], $id);
                     $outs[] = '[[' . $id . '|' . $title . ']]';
                     break;
                 case 'nspage':
+                    // no prefix/postfix here
                     $val = ':'.$column['key'].":$val";
                     $outs[] = '[[' . $val . ']]';
                     break;
                 case 'mail':
                     list($id,$title) = explode(' ',$val,2);
+                    $id = $this->dthlp->_addPrePostFixes($column['type'], $id);
                     $outs[] = '[[' . $id . '|' . $title . ']]';
                     break;
                 case 'url':
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     $outs[] = '[[' . $val . ']]';
                     break;
                 case 'tag':
-                    #FIXME not handled by datatemplate so far
+                    #todo not handled by datatemplate so far
                         $outs[] = '<a href="'.wl(str_replace('/',':',cleanID($column['key'])),array('dataflt'=>$column['key'].':'.$val )).
                         '" title="'.sprintf($this->getLang('tagfilter'),hsc($val)).
                         '" class="wikilink1">'.hsc($val).'</a>';
                     break;
                 case 'wiki':
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     $outs[] = $val;
                     break;
                 default:
-                    //$val = $this->_addPrePostFixes($column['type'], $val);
+                    $val = $this->dthlp->_addPrePostFixes($column['type'], $val);
                     if(substr($type,0,3) == 'img'){
                         $sz = (int) substr($type,3);
                         if(!$sz) $sz = 40;
                         $title = $column['key'].': '.basename(str_replace(':','/',$val));
-                        $outs[] = '{{' . $val . '}}';
+                        $outs[] = '{{' . $val. ($sz ? '?'.$sz:'') .'|'.$title. '}}';
                     }else{
                         $outs[] = $val;
                     }
-            }
+            }    //todo add type 'timestamp' ... returns html..
         }
         return join(', ',$outs);
     }
@@ -261,14 +286,14 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * the parsed template, such that page title and table of contents are
      * correct.
      */
-    function _saveData($data,$id,&$renderer){
+    function _saveRendereredData($data,$id,&$renderer){
         if(!array_key_exists('template', $data)) {
             parent::_saveData($data, $id, $renderer->meta['title']);
             return;
         }
 
         $file = $this->_getFile($data['template']);
-        $instr = $this->_getInstructions($data);
+        $instr = $data['instructions'];
         // If for some reason there are no instructions, don't do anything
         // (Maybe for cache handling one should hand the template file name to the
         // metadata, even though the file does not exist)

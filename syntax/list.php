@@ -42,7 +42,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                                         $mode, 'plugin_datatemplate_list');
     }
 
-    function handle($match, $state, $pos, &$handler){
+    function handle($match, $state, $pos, Doku_Handler &$handler){
         // We want the parent to handle the parsing, but still accept
         // the "template" paramter. So we need to remove the corresponding
         // line from $match.
@@ -107,7 +107,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
     /**
      * Create output
      */
-    function render($format, &$R, $data) {
+    function render($format, Doku_Renderer &$R, $data) {
 
         if(is_null($data)) return false;
 
@@ -192,9 +192,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
             $R->doc .= '</div>';
             return true;
         }
+        //collect column key names
+        $clist = array_keys($data['cols']);
 
         // Construct replacement keys
-        foreach ($data['headers'] as $num => $head) {
+        foreach ($clist as $num => $head) {
             $replacers['keys'][] = "@@" . $head . "@@";
             $replacers['raw_keys'][] = "@@!" . $head . "@@";
         }
@@ -207,7 +209,6 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
 
         // We only want to call the parser once, so first do all the raw replacements and concatenate
         // the strings.
-        $clist = array_keys($data['cols']);
         $raw = "";
         $i = 0;
         $replacers['vals_id'] = array();
@@ -244,6 +245,11 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         // Do remaining replacements
         foreach($replacers['vals_id'] as $num => $vals) {
             $text = str_replace($replacers['keys_id'][$num], $vals, $text);
+        }
+
+        /** @deprecated 18 May 2013 column key names are used in stead of (localized) headers */
+        if(strpos($text, '@@Page@@') !== false) {
+            msg("datatemplate plugin: Use of @@Page@@ in '{$wikipage}' is deprecated. Replace it by @@%title%@@ please.", -1);
         }
 
         // Replace unused placeholders by empty string
