@@ -1,5 +1,6 @@
 <?php
 
+
 $lang['nextpage'] = 'Next page';
 $lang['prevpage'] = 'Previous page';
 

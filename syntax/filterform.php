@@ -103,11 +103,11 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
 
         $form = new Doku_Form(array('class' => 'filterform_plugin', 'action' => wl($ID)));
         $form->addHidden('filterform', $ID);
-        $form->addElement(form_openfieldset(array('_legend' => 'Search/Filter', 'class' => 'filterform')));
+        $form->addElement(form_openfieldset(array('_legend' => $this->getLang('searchfilter'), 'class' => 'filterform')));
         $form->addElement(form_makeMenuField('field', $data['fields'], '', '', '', 'cell menu'));
         $form->addElement(form_makeTextField('contains', '', '', '', 'cell text'));
         if(count($_REQUEST['dataflt']) > 0) {
-            $form->addElement('<div class="group">Previous Filters:</div>');
+            $form->addElement('<div class="group">'.$this->getLang('prevfilters').':</div>');
             foreach($_REQUEST['dataflt'] as $num=>$flt) {
                 list($key, $value) = explode('*~', $flt);
                 $value = trim($value, '*');
@@ -116,7 +116,7 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
                                                            'checked'=>'true', '_class' => 'row')));
             }
         }
-        $form->addElement(form_makeButton('submit', '', 'Submit'));
+        $form->addElement(form_makeButton('submit', '', $this->getLang('submit')));
         $form->endFieldset();
 
         return $form->getForm();
