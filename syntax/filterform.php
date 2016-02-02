@@ -52,7 +52,7 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
     /**
      * Handler to prepare matched data for the rendering process.
      */
-    function handle($match, $state, $pos, Doku_Handler &$handler){
+    function handle($match, $state, $pos, Doku_Handler $handler){
         $data = array();
         $lines = explode("\n",$match);
         foreach ( $lines as $num => $line ) {
@@ -72,7 +72,7 @@ class syntax_plugin_datatemplate_filterform extends DokuWiki_Syntax_Plugin {
     /**
      * Handle the actual output creation.
      */
-    function render($mode, Doku_Renderer &$R, $data) {
+    function render($mode, Doku_Renderer $R, $data) {
         if($mode == 'xhtml'){
             /** @var $R Doku_Renderer_xhtml */
             $R->info['cache'] = false;
