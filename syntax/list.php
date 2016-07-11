@@ -30,7 +30,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * Constructor.
      */
     function __construct(){
-        parent::syntax_plugin_data_table();
+        parent::__construct();
         $this->dtc = new datatemplate_cache($this->dthlp);
     }
 
