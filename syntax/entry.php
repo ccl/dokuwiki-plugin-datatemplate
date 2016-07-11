@@ -40,7 +40,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Handle the match - parse the data
      */
-    function handle($match, $state, $pos, Doku_Handler $handler){
+    function handle($match, $state, $pos, Doku_Handler &$handler){
         // The parser of the parent class should have nicely parsed all
         // parameters. We want to extract the template parameter and treat
         // it separately.
@@ -63,7 +63,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Create output or save the data
      */
-    function render($format, Doku_Renderer $renderer, $data) {
+    function render($format, Doku_Renderer &$renderer, $data) {
         global $ID;
         switch ($format){
             case 'xhtml':

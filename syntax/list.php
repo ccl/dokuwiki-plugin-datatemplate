@@ -30,7 +30,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * Constructor.
      */
     function __construct(){
-        parent::__construct();
+        parent::syntax_plugin_data_table();
         $this->dtc = new datatemplate_cache($this->dthlp);
     }
 
@@ -42,7 +42,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                                         $mode, 'plugin_datatemplate_list');
     }
 
-    function handle($match, $state, $pos, Doku_Handler $handler){
+    function handle($match, $state, $pos, Doku_Handler &$handler){
         // We want the parent to handle the parsing, but still accept
         // the "template" paramter. So we need to remove the corresponding
         // line from $match.
@@ -107,7 +107,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
     /**
      * Create output
      */
-    function render($format, Doku_Renderer $R, $data) {
+    function render($format, Doku_Renderer &$R, $data) {
 
         if(is_null($data)) return false;
 
