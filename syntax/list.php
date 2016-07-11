@@ -42,7 +42,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                                         $mode, 'plugin_datatemplate_list');
     }
 
-    function handle($match, $state, $pos, Doku_Handler &$handler){
+    function handle($match, $state, $pos, Doku_Handler $handler){
         // We want the parent to handle the parsing, but still accept
         // the "template" paramter. So we need to remove the corresponding
         // line from $match.
@@ -107,7 +107,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
     /**
      * Create output
      */
-    function render($format, Doku_Renderer &$R, $data) {
+    function render($format, Doku_Renderer $R, $data) {
 
         if(is_null($data)) return false;
 
@@ -284,10 +284,10 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 $params['dataofs'] = $prev;
 
                 $text .= '<a href="'.wl($ID,$params).
-                    '" title="'.$this->getLang('prevpage').
-                    '" class="prev">'.'&larr; '.$this->getLang('prevpage').'</a>';
+                    '" title="'.'Previous'.
+                    '" class="prev">'.'&larr; Previous Page'.'</a>';
             } else {
-                $text .= '<span class="prev disabled">&larr; '.$this->getLang('prevpage').'</span>';
+                $text .= '<span class="prev disabled">&larr; Previous Page</span>';
             }
 
             for($i=1; $i <= ceil($numrows / $data['limit']); $i++) {
@@ -304,10 +304,10 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 $params['dataofs'] = $next;
 
                 $text .= '<a href="'.wl($ID,$params).
-                    '" title="'.$this->getLang('nextpage').
-                    '" class="next">'.$this->getLang('nextpage').' &rarr;'.'</a>';
+                    '" title="'.'Next'.
+                    '" class="next">'.'Next Page &rarr;'.'</a>';
             } else {
-                $text .= '<span class="next disabled">'.$this->getLang('nextpage').' &rarr;</span>';
+                $text .= '<span class="next disabled">Next Page &rarr;</span>';
             }
             return '<div class="prevnext">' . $text . '</div>';
         }
@@ -388,7 +388,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
     }
 
     function nullList($data, $clist, &$R) {
-        $R->doc .= '<div class="templatelist">'.$this->getLang('nothingfound').'.</div>';
+        $R->doc .= '<div class="templatelist">Nothing.</div>';
     }
 }
 /* Local Variables: */
