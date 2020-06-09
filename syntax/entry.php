@@ -146,7 +146,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                           '#<!-- EDIT.*? \[(\d*-\d*)\] -->#e',
                           '!<div class="category">.*?</div>!s');
         $replace  = array('','','');
-        $text = preg_replace($patterns,$replace,$text);
+        //$text = preg_replace($patterns,$replace,$text);
 
         $R->doc .= $text;
         $R->doc .= '</div>';
