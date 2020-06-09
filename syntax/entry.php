@@ -114,7 +114,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * @param &$R Doku_Renderer_xhtml
      * @return bool|void
      */
-    function _showData($data, &$R) {
+    function _showData($data, $R) {
 
         if(!array_key_exists('template', $data)) {
             // If keyword "template" not present, we can leave

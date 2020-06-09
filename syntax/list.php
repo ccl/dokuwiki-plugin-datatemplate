@@ -390,7 +390,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         return preg_match('/^\s*'.$regex.'$/im', $haystack);
     }
 
-    function nullList($data, $clist, &$R) {
+    function nullList($data, $clist, $R) {
         $R->doc .= '<div class="templatelist">Nothing.</div>';
     }
 }
