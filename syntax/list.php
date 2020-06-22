@@ -30,7 +30,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * Constructor.
      */
     function __construct(){
-        parent::syntax_plugin_data_table();
+        parent::__construct();
         $this->dtc = new datatemplate_cache($this->dthlp);
     }
 
@@ -42,7 +42,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                                         $mode, 'plugin_datatemplate_list');
     }
 
-    function handle($match, $state, $pos, Doku_Handler &$handler){
+    function handle($match, $state, $pos, Doku_Handler $handler){
         // We want the parent to handle the parsing, but still accept
         // the "template" paramter. So we need to remove the corresponding
         // line from $match.
@@ -107,7 +107,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
     /**
      * Create output
      */
-    function render($format, Doku_Renderer &$R, $data) {
+    function render($format, Doku_Renderer $R, $data) {
 
         if(is_null($data)) return false;
 
@@ -174,6 +174,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      */
     function _renderTemplate($wikipage, $data, $rows, &$R) {
         global $ID;
+
         resolve_pageid(getNS($ID), $wikipage, $exists);          // resolve shortcuts
 
         // check for permission
@@ -269,7 +270,9 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
      * @return string The html for the pagination.
      */
     function _renderPagination($data, $numrows) {
+
         global $ID;
+
         $text = '';
         // Add pagination controls
         if($data['limit']){
@@ -284,10 +287,10 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 $params['dataofs'] = $prev;
 
                 $text .= '<a href="'.wl($ID,$params).
-                    '" title="'.'Previous'.
-                    '" class="prev">'.'&larr; Previous Page'.'</a>';
+                    '" title="'.$this->getLang('prevpage').
+                    '" class="prev">'.'&larr; '.$this->getLang('prevpage').'</a>';
             } else {
-                $text .= '<span class="prev disabled">&larr; Previous Page</span>';
+                $text .= '<span class="prev disabled">&larr; '.$this->getLang('prevpage').'</span>';
             }
 
             for($i=1; $i <= ceil($numrows / $data['limit']); $i++) {
@@ -304,10 +307,10 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
                 $params['dataofs'] = $next;
 
                 $text .= '<a href="'.wl($ID,$params).
-                    '" title="'.'Next'.
-                    '" class="next">'.'Next Page &rarr;'.'</a>';
+                    '" title="'.$this->getLang('nextpage').
+                    '" class="next">'.$this->getLang('nextpage').' &rarr;'.'</a>';
             } else {
-                $text .= '<span class="next disabled">Next Page &rarr;</span>';
+                $text .= '<span class="next disabled">'.$this->getLang('nextpage').' &rarr;</span>';
             }
             return '<div class="prevnext">' . $text . '</div>';
         }
@@ -387,7 +390,7 @@ class syntax_plugin_datatemplate_list extends syntax_plugin_data_table {
         return preg_match('/^\s*'.$regex.'$/im', $haystack);
     }
 
-    function nullList($data, $clist, &$R) {
+    function nullList($data, $clist, $R) {
         $R->doc .= '<div class="templatelist">Nothing.</div>';
     }
 }

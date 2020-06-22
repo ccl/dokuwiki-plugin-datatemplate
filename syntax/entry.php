@@ -40,7 +40,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Handle the match - parse the data
      */
-    function handle($match, $state, $pos, Doku_Handler &$handler){
+    function handle($match, $state, $pos, Doku_Handler $handler){
         // The parser of the parent class should have nicely parsed all
         // parameters. We want to extract the template parameter and treat
         // it separately.
@@ -63,7 +63,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
     /**
      * Create output or save the data
      */
-    function render($format, Doku_Renderer &$renderer, $data) {
+    function render($format, Doku_Renderer $renderer, $data) {
         global $ID;
         switch ($format){
             case 'xhtml':
@@ -114,7 +114,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
      * @param &$R Doku_Renderer_xhtml
      * @return bool|void
      */
-    function _showData($data, &$R) {
+    function _showData($data, $R) {
 
         if(!array_key_exists('template', $data)) {
             // If keyword "template" not present, we can leave
@@ -146,7 +146,7 @@ class syntax_plugin_datatemplate_entry extends syntax_plugin_data_entry {
                           '#<!-- EDIT.*? \[(\d*-\d*)\] -->#e',
                           '!<div class="category">.*?</div>!s');
         $replace  = array('','','');
-        $text = preg_replace($patterns,$replace,$text);
+        //$text = preg_replace($patterns,$replace,$text);
 
         $R->doc .= $text;
         $R->doc .= '</div>';
